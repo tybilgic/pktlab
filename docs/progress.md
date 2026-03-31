@@ -3,16 +3,16 @@
 ## Current Focus
 
 - Active milestone: `M1`
-- Active ticket: `PLN-001`
-- Overall state: `planning complete, repo initialized, implementation not started`
-- Latest progress entry: `PRG-004`
+- Active ticket: `PLN-003`
+- Overall state: `implementation started, foundation and shared contracts completed`
+- Latest progress entry: `PRG-006`
 
 ## Ticket Status
 
 | Ticket | Title | Status | Last Updated | Related Commits | Notes |
 | --- | --- | --- | --- | --- | --- |
-| PLN-001 | Foundation and Build Tooling | not started | 2026-03-31 |  |  |
-| PLN-002 | Shared Contracts and Models | not started | 2026-03-31 |  |  |
+| PLN-001 | Foundation and Build Tooling | done | 2026-03-31 | `f37b95a` | Repository skeleton, package scaffold, and placeholder non-code assets are in place. |
+| PLN-002 | Shared Contracts and Models | done | 2026-03-31 | `02f0283` | Shared IPC/topology schemas and core C/Python type definitions are frozen for the first slice. |
 | PLN-003 | Datapath IPC Stub in C | not started | 2026-03-31 |  |  |
 | PLN-004 | Python IPC Client and Controller State | not started | 2026-03-31 |  |  |
 | PLN-005 | Controller Bootstrap, Health API, and CLI Status | not started | 2026-03-31 |  |  |
@@ -108,6 +108,64 @@ Entries are append-only and ordered so session history can be reconstructed with
 - Next step:
   - create a scoped documentation commit for the ordered progress-log update
 - Commit: pending
+
+### PRG-005 | 2026-03-31
+
+- Ticket: PLN-001
+- Status change: not started -> done
+- Implemented:
+  - created the initial repository skeleton, root tooling files, and package metadata for `dpdkd`, `ctrld`, and `ctl`
+  - added importable Python package directories and minimal entrypoint scaffolding
+  - added placeholder architecture/docs files and non-code lab, traffic, and monitoring assets so the repository shape matches the implementation pack closely
+- Files touched:
+  - `README.md`
+  - `LICENSE`
+  - `Makefile`
+  - `pyproject.toml`
+  - `dpdkd/meson.build`
+  - `ctrld/pyproject.toml`
+  - `ctl/pyproject.toml`
+  - package `__init__.py` and entrypoint scaffold files under `ctrld/` and `ctl/`
+  - placeholder files under `docs/`, `traffic/`, `lab/`, and `monitoring/`
+- Verification:
+  - compared the resulting tree to the implementation-pack layout with `rg --files | sort`
+  - confirmed the Python package scaffold compiles with `python3 -m compileall ctrld/pktlab_ctrld ctl/pktlabctl traffic`
+- Remaining:
+  - no remaining work within `PLN-001`
+- Risks or blockers:
+  - package entrypoints are intentionally stubbed and will exit until later tickets implement real startup paths
+- Next step:
+  - complete `PLN-002` by freezing the shared IPC, topology, and core type contracts
+- Commit: `f37b95a` `repo: establish the initial pktlab project skeleton`
+
+### PRG-006 | 2026-03-31
+
+- Ticket: PLN-002
+- Status change: not started -> done
+- Implemented:
+  - added the datapath IPC JSON schema covering request, success, and error envelopes plus the required command set
+  - added the topology YAML schema covering the base topology objects, embedded ruleset, capture points, and conservative datapath runtime knobs
+  - added shared C public headers for datapath types, errors, and version metadata
+  - added shared Python models and typed controller-side errors for rules, topology config, and state enums
+- Files touched:
+  - `schemas/dpdkd-ipc.schema.json`
+  - `schemas/topology.schema.yaml`
+  - `dpdkd/include/pktlab_dpdkd/types.h`
+  - `dpdkd/include/pktlab_dpdkd/errors.h`
+  - `dpdkd/include/pktlab_dpdkd/version.h`
+  - `ctrld/pktlab_ctrld/types.py`
+  - `ctrld/pktlab_ctrld/error.py`
+- Verification:
+  - validated the IPC schema as JSON with `python3 -c "import json, pathlib; json.loads(pathlib.Path('schemas/dpdkd-ipc.schema.json').read_text())"`
+  - validated the topology schema as YAML with `python3 -c "import pathlib; import yaml; yaml.safe_load(pathlib.Path('schemas/topology.schema.yaml').read_text())"`
+  - re-ran `python3 -m compileall ctrld/pktlab_ctrld ctl/pktlabctl traffic` after the shared model files were added
+- Remaining:
+  - no remaining work within `PLN-002`
+- Risks or blockers:
+  - `get_version` payload fields are intentionally minimal because the brief did not fully specify them; later tickets should extend them only if a concrete requirement appears
+- Next step:
+  - start `PLN-003` and implement the C IPC framing/helpers and stub datapath socket server against these contracts
+- Commit: `02f0283` `contracts: freeze the initial shared schemas and core type definitions`
 
 ## Read Before Continuing
 
