@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pktlabctl"
+version = "0.1.0"
+description = "pktlab command-line client"
+requires-python = ">=3.11"
+dependencies = [
+  "httpx>=0.27,<1",
+  "pydantic>=2.7,<3",
+  "PyYAML>=6,<7",
+]
+
+[project.scripts]
+pktlabctl = "pktlabctl.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pktlabctl*"]

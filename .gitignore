@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.venv/
+venv/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+meson-private/
+meson-logs/
+.ninja_deps
+.ninja_log
+compile_commands.json
+
+# C and system artifacts
+*.o
+*.a
+*.so
+*.pcap
+*.swp
+*.swo
+
+# OS/editor noise
+.DS_Store
+.idea/
+.vscode/

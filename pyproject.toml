@@ -1,0 +1,9 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["ctrld/pktlab_ctrld", "ctl/pktlabctl"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["ctrld/tests"]
+pythonpath = ["ctrld", "ctl"]
