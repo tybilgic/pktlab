@@ -88,6 +88,8 @@ class DpdkClientStubIntegrationTests(unittest.TestCase):
                 except subprocess.TimeoutExpired:
                     proc.kill()
                     proc.wait(timeout=5)
+                if proc.stderr is not None:
+                    proc.stderr.close()
 
 
 if __name__ == "__main__":

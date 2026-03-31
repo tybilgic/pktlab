@@ -3,9 +3,9 @@
 ## Current Focus
 
 - Active milestone: `M1`
-- Active ticket: `PLN-004`
-- Overall state: `PLN-004 code is implemented; full dependency-backed verification is blocked by missing host Python packaging tools`
-- Latest progress entry: `PRG-009`
+- Active ticket: `PLN-005`
+- Overall state: `PLN-004 is complete and fully verified under the repo virtualenv; controller bootstrap work can begin`
+- Latest progress entry: `PRG-010`
 
 ## Ticket Status
 
@@ -14,7 +14,7 @@
 | PLN-001 | Foundation and Build Tooling | done | 2026-03-31 | `f37b95a` | Repository skeleton, package scaffold, and placeholder non-code assets are in place. |
 | PLN-002 | Shared Contracts and Models | done | 2026-03-31 | `02f0283` | Shared IPC/topology schemas and core C/Python type definitions are frozen for the first slice. |
 | PLN-003 | Datapath IPC Stub in C | done | 2026-03-31 | `550aa35` | Stub daemon, framing layer, Unix socket server, and smoke test are in place. |
-| PLN-004 | Python IPC Client and Controller State | in progress | 2026-03-31 | `cfcedac` | Code is in place; full IPC/client verification needs `pydantic` and Python packaging tools installed on the host. |
+| PLN-004 | Python IPC Client and Controller State | done | 2026-03-31 | `cfcedac`, `a87eb45` | Full unit and integration verification completed under the repo virtualenv; next work is `PLN-005`. |
 | PLN-005 | Controller Bootstrap, Health API, and CLI Status | not started | 2026-03-31 |  |  |
 | PLN-006 | Config Parsing, Validation, and Effective Runtime Policy | not started | 2026-03-31 |  |  |
 | PLN-007 | Topology Primitives and TAP Reconciliation | not started | 2026-03-31 |  |  |
@@ -107,7 +107,7 @@ Entries are append-only and ordered so session history can be reconstructed with
   - older commits `febfdb7` and `1b1c77d` predate the structured commit-message rule, so their rationale is preserved here in the ordered progress log
 - Next step:
   - create a scoped documentation commit for the ordered progress-log update
-- Commit: `cfcedac` `ctrld: add the Python datapath client and controller state layer`
+- Commit: `f7773dc` `docs: make planning history ordered and implementation-ready`
 
 ### PRG-005 | 2026-03-31
 
@@ -272,6 +272,31 @@ Entries are append-only and ordered so session history can be reconstructed with
   - `sudo` requires an interactive password in this environment, so I could not self-install the missing host packages
 - Next step:
   - either provision `python3-pip` and `python3-venv` on the host or provide an interpreter with `pydantic` available, then finish `PLN-004` verification and proceed to `PLN-005`
+- Commit: `cfcedac` `ctrld: add the Python datapath client and controller state layer`
+
+### PRG-010 | 2026-03-31
+
+- Ticket: PLN-004
+- Status change: in progress -> done
+- Implemented:
+  - reran the full controller test suite under the repo virtualenv after the host Python packaging tools and declared dependencies were installed
+  - fixed the client integration test cleanup path so the stub daemon `stderr` handle is closed and the verification baseline is warning-free
+  - updated the README, progress tracker, and ticket status to reflect that `PLN-004` is now complete and that `PLN-005` is the next active ticket
+- Files touched:
+  - `ctrld/tests/integration/test_dpdk_client_stub.py`
+  - `README.md`
+  - `docs/progress.md`
+  - `docs/tickets/PLN-004-python-ipc-client-and-controller-state.md`
+- Verification:
+  - ran `.venv/bin/python -c "import pydantic; print(pydantic.__version__)"`
+  - ran `.venv/bin/python -m unittest discover -s ctrld/tests -t ctrld -v`
+  - ran `git diff --check`
+- Remaining:
+  - no remaining work within `PLN-004`
+- Risks or blockers:
+  - none for this ticket
+- Next step:
+  - start `PLN-005` and wire the controller bootstrap, health API, and CLI status path on top of the now-verified Python IPC/state layer
 - Commit: pending
 
 ## Read Before Continuing

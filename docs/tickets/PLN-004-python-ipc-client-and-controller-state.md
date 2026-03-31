@@ -2,7 +2,7 @@
 
 ## Status
 
-`in progress`
+`done`
 
 ## Goal
 
@@ -56,13 +56,13 @@ The controller cannot supervise or reason about the datapath until it can speak 
 - unit tests for framing helpers
 - integration test against the C stub daemon for `ping` and `get_health`
 
-## Current Note
+## Completion Note
 
-- the code slice is implemented
-- full dependency-backed verification on this host is currently blocked because the system Python
-  image does not provide `pip`, `venv`, or the declared controller dependencies such as `pydantic`
-- the test suite now skips the `pydantic`-backed IPC/client tests with an explicit message on a
-  bare host and still runs the pure state reconciliation tests
+- the Python IPC/client/state slice is implemented and verified
+- full dependency-backed verification completed under the repo virtualenv
+- the controller suite passes against the C stub daemon, including the typed IPC client integration
+  path
+- the next dependent ticket is `PLN-005`
 
 ## Suggested Commit Slices
 
