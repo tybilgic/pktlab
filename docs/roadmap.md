@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document is the durable execution plan for implementing `pktlab` from an empty repository to a working MVP. It complements the source brief in [pktlab_c_python_ai_implementation_pack.md](/home/tbilgic/projects/pktlab/pktlab_c_python_ai_implementation_pack.md) and translates that architecture into milestones, tickets, and working rules for implementation.
+This document is the durable execution plan for implementing `pktlab` from an empty repository to a working MVP. It complements the source brief in [pktlab_c_python_ai_implementation_pack.md](../pktlab_c_python_ai_implementation_pack.md) and translates that architecture into milestones, tickets, and working rules for implementation.
 
 ## Locked Decisions
 
@@ -115,10 +115,10 @@ Outcome:
 ## Working Agreement
 
 - Every implementation step should map to one ticket or a clearly scoped sub-slice of a ticket.
-- After each completed slice, update [docs/progress.md](/home/tbilgic/projects/pktlab/docs/progress.md).
+- After each completed slice, update [docs/progress.md](progress.md).
 - After each meaningful slice, create a well-scoped commit with a descriptive message.
 - Future sessions should begin by reading:
-  - [docs/progress.md](/home/tbilgic/projects/pktlab/docs/progress.md)
-  - the active ticket in [docs/tickets/README.md](/home/tbilgic/projects/pktlab/docs/tickets/README.md)
+  - [docs/progress.md](progress.md)
+  - the active ticket in [docs/tickets/README.md](tickets/README.md)
   - the latest relevant commit(s)
 - For accuracy, a quick targeted inspection of changed files is still required before continuing work. The tracking docs reduce rediscovery; they do not replace verification.

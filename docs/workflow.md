@@ -6,8 +6,8 @@ Keep implementation resumable, auditable, and easy to continue across sessions w
 
 ## Session Start Protocol
 
-1. Read [docs/progress.md](/home/tbilgic/projects/pktlab/docs/progress.md).
-2. Open the active ticket from [docs/tickets/README.md](/home/tbilgic/projects/pktlab/docs/tickets/README.md).
+1. Read [docs/progress.md](progress.md).
+2. Open the active ticket from [docs/tickets/README.md](tickets/README.md).
 3. Review the latest related commit(s).
 4. Inspect only the files relevant to the active ticket and any files changed after the last recorded update.
 
@@ -30,7 +30,7 @@ For each ticket:
 1. Re-read the ticket scope and acceptance criteria.
 2. Implement one coherent vertical slice.
 3. Run the smallest relevant verification for that slice.
-4. Update [docs/progress.md](/home/tbilgic/projects/pktlab/docs/progress.md):
+4. Update [docs/progress.md](progress.md):
    - status
    - what changed
    - what remains
@@ -78,7 +78,7 @@ When a ticket changes state, record:
 When work stops mid-ticket:
 
 - leave the ticket `in progress`
-- add a short handoff note in [docs/progress.md](/home/tbilgic/projects/pktlab/docs/progress.md)
+- add a short handoff note in [docs/progress.md](progress.md)
 - record the exact next technical step
 
 ## Reality Check
