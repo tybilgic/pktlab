@@ -1,0 +1,490 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pktlab.local/schemas/dpdkd-ipc.schema.json",
+  "title": "pktlab dpdkd IPC envelopes",
+  "description": "Shared controller-to-datapath IPC contract for Unix socket JSON messages.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/RequestEnvelope"
+    },
+    {
+      "$ref": "#/$defs/SuccessEnvelope"
+    },
+    {
+      "$ref": "#/$defs/ErrorEnvelope"
+    }
+  ],
+  "$defs": {
+    "RequestId": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "PortName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "RuleProtocol": {
+      "type": "string",
+      "enum": ["tcp", "udp", "icmp", "any"]
+    },
+    "RuleActionType": {
+      "type": "string",
+      "enum": ["forward", "drop", "count", "mirror"]
+    },
+    "DatapathState": {
+      "type": "string",
+      "enum": ["starting", "running", "paused", "degraded", "stopping", "failed"]
+    },
+    "PortRole": {
+      "type": "string",
+      "enum": ["ingress", "egress"]
+    },
+    "PortState": {
+      "type": "string",
+      "enum": ["up", "down"]
+    },
+    "RuleMatch": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "proto": {
+          "$ref": "#/$defs/RuleProtocol"
+        },
+        "src_ip": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dst_ip": {
+          "type": "string",
+          "minLength": 1
+        },
+        "src_cidr": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dst_cidr": {
+          "type": "string",
+          "minLength": 1
+        },
+        "src_port": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "dst_port": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        }
+      }
+    },
+    "RuleAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/RuleActionType"
+        },
+        "port": {
+          "$ref": "#/$defs/PortName"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["forward", "mirror"]
+              }
+            }
+          },
+          "then": {
+            "required": ["port"]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["drop", "count"]
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "required": ["port"]
+            }
+          }
+        }
+      ]
+    },
+    "Rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "priority", "match", "action"],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "priority": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "match": {
+          "$ref": "#/$defs/RuleMatch"
+        },
+        "action": {
+          "$ref": "#/$defs/RuleAction"
+        }
+      }
+    },
+    "EmptyRequestPayload": {
+      "type": "object",
+      "additionalProperties": false
+    },
+    "ReplaceRulesRequestPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule_version", "default_action", "rules"],
+      "properties": {
+        "rule_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "default_action": {
+          "$ref": "#/$defs/RuleAction"
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Rule"
+          }
+        }
+      }
+    },
+    "RequestEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "cmd", "payload"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "cmd": {
+          "type": "string",
+          "enum": [
+            "ping",
+            "get_version",
+            "get_health",
+            "get_ports",
+            "get_stats",
+            "reset_stats",
+            "get_rules",
+            "replace_rules",
+            "pause_datapath",
+            "resume_datapath",
+            "shutdown"
+          ]
+        },
+        "payload": {
+          "type": "object"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "replace_rules"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "payload": {
+                "$ref": "#/$defs/ReplaceRulesRequestPayload"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "payload": {
+                "$ref": "#/$defs/EmptyRequestPayload"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "AckPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "message": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "VersionPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["service", "version"],
+      "properties": {
+        "service": {
+          "type": "string",
+          "const": "pktlab-dpdkd"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dpdk_version": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "HealthPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["health"],
+      "properties": {
+        "health": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state", "message", "applied_rule_version", "ports_ready", "paused"],
+          "properties": {
+            "state": {
+              "$ref": "#/$defs/DatapathState"
+            },
+            "message": {
+              "type": "string"
+            },
+            "applied_rule_version": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "ports_ready": {
+              "type": "boolean"
+            },
+            "paused": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "PortsPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ports"],
+      "properties": {
+        "ports": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "port_id", "role", "state"],
+            "properties": {
+              "name": {
+                "$ref": "#/$defs/PortName"
+              },
+              "port_id": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "role": {
+                "$ref": "#/$defs/PortRole"
+              },
+              "state": {
+                "$ref": "#/$defs/PortState"
+              }
+            }
+          }
+        }
+      }
+    },
+    "StatsPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stats"],
+      "properties": {
+        "stats": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "rx_packets",
+            "tx_packets",
+            "drop_packets",
+            "drop_parse_errors",
+            "drop_no_match",
+            "rx_bursts",
+            "tx_bursts",
+            "unsent_packets",
+            "rule_hits"
+          ],
+          "properties": {
+            "rx_packets": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "tx_packets": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "drop_packets": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "drop_parse_errors": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "drop_no_match": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "rx_bursts": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "tx_bursts": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unsent_packets": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "rule_hits": {
+              "type": "object",
+              "propertyNames": {
+                "pattern": "^[0-9]+$"
+              },
+              "additionalProperties": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "RulesPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule_version", "default_action", "rules"],
+      "properties": {
+        "rule_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "default_action": {
+          "$ref": "#/$defs/RuleAction"
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Rule"
+          }
+        }
+      }
+    },
+    "ReplaceRulesResponsePayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["applied_rule_version", "rule_count"],
+      "properties": {
+        "applied_rule_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rule_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "SuccessEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "ok", "payload"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "ok": {
+          "const": true
+        },
+        "payload": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/AckPayload"
+            },
+            {
+              "$ref": "#/$defs/VersionPayload"
+            },
+            {
+              "$ref": "#/$defs/HealthPayload"
+            },
+            {
+              "$ref": "#/$defs/PortsPayload"
+            },
+            {
+              "$ref": "#/$defs/StatsPayload"
+            },
+            {
+              "$ref": "#/$defs/RulesPayload"
+            },
+            {
+              "$ref": "#/$defs/ReplaceRulesResponsePayload"
+            }
+          ]
+        }
+      }
+    },
+    "ErrorCode": {
+      "type": "string",
+      "enum": [
+        "INVALID_REQUEST",
+        "INVALID_PAYLOAD",
+        "UNKNOWN_COMMAND",
+        "RULE_VALIDATION_ERROR",
+        "PORT_INIT_ERROR",
+        "STATE_CONFLICT",
+        "INTERNAL_ERROR"
+      ]
+    },
+    "ErrorEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "ok", "error"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "ok": {
+          "const": false
+        },
+        "error": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["code", "message"],
+          "properties": {
+            "code": {
+              "$ref": "#/$defs/ErrorCode"
+            },
+            "message": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    }
+  }
+}
