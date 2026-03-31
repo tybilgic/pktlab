@@ -2,7 +2,7 @@
 
 ## Status
 
-`not started`
+`done`
 
 ## Goal
 
@@ -65,3 +65,22 @@ This is the first end-to-end proof that the three-process model works and that t
 ## Handoff Note
 
 At the end of this ticket, the system should feel alive even though it cannot yet build the full lab topology.
+
+## Completion Notes
+
+- implemented the controller runtime, datapath supervisor, FastAPI `/health` route, and the
+  controller entrypoint
+- implemented `pktlabctl status` with human-readable and JSON output modes
+- added controller and CLI integration tests that exercise a supervised local datapath stub and a
+  controller-backed status command path
+- verified with:
+  - `.venv/bin/python -m compileall ctrld/pktlab_ctrld ctrld/tests ctl/pktlabctl ctl/tests traffic`
+  - `.venv/bin/python -m unittest discover -s ctrld/tests -t ctrld -v`
+  - `.venv/bin/python -m unittest discover -s ctl/tests -t ctl -v`
+  - `.venv/bin/pktlab-ctrld --help`
+  - `.venv/bin/pktlabctl --help`
+  - `git diff --check`
+- related commits:
+  - `012be4d` `ctrld: add datapath supervision and the health API`
+  - `fc08760` `ctl: add controller status commands and smoke coverage`
+- next ticket: `PLN-006`

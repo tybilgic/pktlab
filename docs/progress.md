@@ -3,9 +3,9 @@
 ## Current Focus
 
 - Active milestone: `M1`
-- Active ticket: `PLN-005`
-- Overall state: `PLN-004 is complete and fully verified under the repo virtualenv; controller bootstrap work can begin`
-- Latest progress entry: `PRG-010`
+- Active ticket: `PLN-006`
+- Overall state: `PLN-005 is complete; the first end-to-end controller/CLI control slice is running and verified`
+- Latest progress entry: `PRG-011`
 
 ## Ticket Status
 
@@ -15,8 +15,8 @@
 | PLN-002 | Shared Contracts and Models | done | 2026-03-31 | `02f0283` | Shared IPC/topology schemas and core C/Python type definitions are frozen for the first slice. |
 | PLN-003 | Datapath IPC Stub in C | done | 2026-03-31 | `550aa35` | Stub daemon, framing layer, Unix socket server, and smoke test are in place. |
 | PLN-004 | Python IPC Client and Controller State | done | 2026-03-31 | `cfcedac`, `a87eb45`, `20af4ba` | Full unit and integration verification completed under the repo virtualenv; next work is `PLN-005`. |
-| PLN-005 | Controller Bootstrap, Health API, and CLI Status | not started | 2026-03-31 |  |  |
-| PLN-006 | Config Parsing, Validation, and Effective Runtime Policy | not started | 2026-03-31 |  |  |
+| PLN-005 | Controller Bootstrap, Health API, and CLI Status | done | 2026-04-01 | `012be4d`, `fc08760` | Controller supervision, `/health`, `pktlabctl status`, and integration coverage are in place. |
+| PLN-006 | Config Parsing, Validation, and Effective Runtime Policy | not started | 2026-04-01 |  | next active ticket |
 | PLN-007 | Topology Primitives and TAP Reconciliation | not started | 2026-03-31 |  |  |
 | PLN-008 | Datapath EAL, Ports, and Pass-Through Loop | not started | 2026-03-31 |  |  |
 | PLN-009 | Datapath Status, Stats, and User Surface | not started | 2026-03-31 |  |  |
@@ -298,6 +298,52 @@ Entries are append-only and ordered so session history can be reconstructed with
 - Next step:
   - start `PLN-005` and wire the controller bootstrap, health API, and CLI status path on top of the now-verified Python IPC/state layer
 - Commit: `20af4ba` `pln-004: complete verification of the Python IPC and state slice`
+
+### PRG-011 | 2026-04-01
+
+- Ticket: PLN-005
+- Status change: not started -> done
+- Implemented:
+  - added a datapath supervisor that starts `pktlab-dpdkd`, waits for typed IPC readiness, tracks live process state, and shuts the subprocess down cleanly
+  - added the controller runtime, FastAPI app bootstrap, and `GET /health` so the controller now exposes combined controller/datapath health through one API
+  - added `pktlabctl status` with human-readable and JSON output modes, backed only by the controller API
+  - added controller and CLI integration coverage for the supervised startup path and the end-to-end status command
+  - updated the shared test discovery config so the CLI suite is part of the repository test surface
+  - updated the README to document the new controller/CLI run and test workflow
+- Files touched:
+  - `ctrld/pktlab_ctrld/process/supervisor.py`
+  - `ctrld/pktlab_ctrld/app.py`
+  - `ctrld/pktlab_ctrld/api/app.py`
+  - `ctrld/pktlab_ctrld/api/models.py`
+  - `ctrld/pktlab_ctrld/api/routes_health.py`
+  - `ctrld/pktlab_ctrld/main.py`
+  - `ctrld/tests/integration/test_controller_health_api.py`
+  - `ctl/pktlabctl/client.py`
+  - `ctl/pktlabctl/output.py`
+  - `ctl/pktlabctl/commands/status.py`
+  - `ctl/pktlabctl/cli.py`
+  - `ctl/pktlabctl/main.py`
+  - `ctl/tests/__init__.py`
+  - `ctl/tests/integration/__init__.py`
+  - `ctl/tests/integration/test_status_command.py`
+  - `pyproject.toml`
+  - `README.md`
+  - `docs/tickets/PLN-005-controller-bootstrap-health-api-and-cli-status.md`
+  - `docs/progress.md`
+- Verification:
+  - ran `.venv/bin/python -m compileall ctrld/pktlab_ctrld ctrld/tests ctl/pktlabctl ctl/tests traffic`
+  - ran `.venv/bin/python -m unittest discover -s ctrld/tests -t ctrld -v`
+  - ran `.venv/bin/python -m unittest discover -s ctl/tests -t ctl -v`
+  - ran `.venv/bin/pktlab-ctrld --help`
+  - ran `.venv/bin/pktlabctl --help`
+  - ran `git diff --check`
+- Remaining:
+  - no remaining work within `PLN-005`
+- Risks or blockers:
+  - the controller defaults still point at `/run/pktlab/dpdkd.sock`, so local non-root development should continue using an explicit `/tmp/...` socket path until later topology/runtime setup provisions `/run/pktlab/`
+- Next step:
+  - start `PLN-006` and add topology/rules config parsing plus the conservative effective runtime policy for datapath launch settings
+- Commit: `012be4d`, `fc08760`
 
 ## Read Before Continuing
 

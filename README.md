@@ -14,16 +14,17 @@ Implemented today:
 - datapath smoke test covering framing, success responses, and error responses
 - Python datapath IPC framing/helpers, typed Unix-socket client, and controller
   desired/observed/reconcile state models
-- controller-side unit/integration coverage for the IPC/state slice
+- `pktlab-ctrld` runtime with datapath supervision, FastAPI application bootstrap, and
+  `GET /health`
+- `pktlabctl status` with human-readable and `--json` output modes
+- controller- and CLI-side integration coverage for the first end-to-end control slice
 
 Not implemented yet:
 
-- controller runtime
-- CLI runtime
 - topology application and teardown
 - DPDK EAL, TAP PMD ports, forwarding loop, and rules engine
 
-The current implementation baseline covers `PLN-001` through `PLN-004`. Progress history and the
+The current implementation baseline covers `PLN-001` through `PLN-005`. Progress history and the
 active ticket live in [docs/progress.md](docs/progress.md).
 
 ## README Policy
@@ -97,7 +98,7 @@ meson compile -C build/dpdkd
 Sanity-check the current Python tree:
 
 ```sh
-.venv/bin/python -m compileall ctrld/pktlab_ctrld ctrld/tests ctl/pktlabctl traffic
+.venv/bin/python -m compileall ctrld/pktlab_ctrld ctrld/tests ctl/pktlabctl ctl/tests traffic
 ```
 
 ## Test
@@ -120,6 +121,12 @@ Run the controller test discovery:
 .venv/bin/python -m unittest discover -s ctrld/tests -t ctrld -v
 ```
 
+Run the CLI smoke suite:
+
+```sh
+.venv/bin/python -m unittest discover -s ctl/tests -t ctl -v
+```
+
 Run the pure state reconcile tests without the controller dependency set:
 
 ```sh
@@ -140,7 +147,7 @@ python3 -c "import pathlib, yaml; yaml.safe_load(pathlib.Path('schemas/topology.
 
 ## Run
 
-The only runnable service today is the datapath stub:
+Build and run the datapath stub directly:
 
 ```sh
 build/dpdkd/pktlab-dpdkd --help
@@ -153,20 +160,39 @@ Runtime notes:
 - the daemon handles `SIGINT` and `SIGTERM`
 - supported IPC commands: `ping`, `get_version`, `get_health`
 
-The Python controller and CLI entrypoints exist only as scaffolding right now and intentionally
-exit with a non-zero status:
+Run the controller with datapath supervision:
 
 ```sh
-python3 -m pktlab_ctrld.main
-python3 -m pktlabctl.main
+.venv/bin/pktlab-ctrld \
+  --host 127.0.0.1 \
+  --port 8080 \
+  --dpdkd-bin build/dpdkd/pktlab-dpdkd \
+  --dpdkd-socket-path /tmp/pktlab-dpdkd.sock
 ```
+
+Query the controller through the CLI:
+
+```sh
+.venv/bin/pktlabctl --controller-url http://127.0.0.1:8080 status
+.venv/bin/pktlabctl --controller-url http://127.0.0.1:8080 --json status
+```
+
+Controller runtime notes:
+
+- controller startup is not considered ready until the supervised datapath answers `ping`,
+  `get_health`, and `get_version`
+- controller health is exposed at `GET /health`
+- `pktlabctl` talks only to the controller HTTP API, not to the datapath socket directly
+- local development should usually pass `--dpdkd-socket-path /tmp/...` unless `/run/pktlab/` is
+  already provisioned and writable
 
 ## How To Use The Project Today
 
 As a user:
 
 - treat the repo as an implementation baseline, not a complete packet-processing lab yet
-- use `pktlab-dpdkd` only as a stub IPC daemon for control-path development and verification
+- use `pktlab-ctrld` plus `pktlabctl status` to exercise the first complete control path
+- use `pktlab-dpdkd` directly only when validating datapath-side IPC behavior
 - use the schemas in `schemas/` as the current contract reference
 
 As a developer:
@@ -177,6 +203,8 @@ As a developer:
 - inspect only the files relevant to the active ticket before continuing work
 - install the editable Python packages before working on controller or CLI code that depends on
   third-party libraries such as `pydantic`
+- rebuild `build/dpdkd/pktlab-dpdkd` before running controller or CLI integration tests if the C
+  stub changed
 
 ## How To Modify The Project
 
@@ -190,4 +218,4 @@ As a developer:
 
 ## Current Next Step
 
-Start `PLN-005`: controller bootstrap, health API, and CLI status.
+Start `PLN-006`: config parsing, validation, and effective runtime policy.
