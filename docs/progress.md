@@ -14,7 +14,7 @@
 | PLN-001 | Foundation and Build Tooling | done | 2026-03-31 | `f37b95a` | Repository skeleton, package scaffold, and placeholder non-code assets are in place. |
 | PLN-002 | Shared Contracts and Models | done | 2026-03-31 | `02f0283` | Shared IPC/topology schemas and core C/Python type definitions are frozen for the first slice. |
 | PLN-003 | Datapath IPC Stub in C | done | 2026-03-31 | `550aa35` | Stub daemon, framing layer, Unix socket server, and smoke test are in place. |
-| PLN-004 | Python IPC Client and Controller State | in progress | 2026-03-31 |  | Code is in place; full IPC/client verification needs `pydantic` and Python packaging tools installed on the host. |
+| PLN-004 | Python IPC Client and Controller State | in progress | 2026-03-31 | `cfcedac` | Code is in place; full IPC/client verification needs `pydantic` and Python packaging tools installed on the host. |
 | PLN-005 | Controller Bootstrap, Health API, and CLI Status | not started | 2026-03-31 |  |  |
 | PLN-006 | Config Parsing, Validation, and Effective Runtime Policy | not started | 2026-03-31 |  |  |
 | PLN-007 | Topology Primitives and TAP Reconciliation | not started | 2026-03-31 |  |  |
@@ -107,7 +107,7 @@ Entries are append-only and ordered so session history can be reconstructed with
   - older commits `febfdb7` and `1b1c77d` predate the structured commit-message rule, so their rationale is preserved here in the ordered progress log
 - Next step:
   - create a scoped documentation commit for the ordered progress-log update
-- Commit: pending
+- Commit: `cfcedac` `ctrld: add the Python datapath client and controller state layer`
 
 ### PRG-005 | 2026-03-31
 
