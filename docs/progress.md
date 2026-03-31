@@ -3,9 +3,9 @@
 ## Current Focus
 
 - Active milestone: `M1`
-- Active ticket: `PLN-003`
-- Overall state: `implementation started, foundation and shared contracts completed`
-- Latest progress entry: `PRG-006`
+- Active ticket: `PLN-004`
+- Overall state: `c-side IPC stub completed; python control-path work can begin`
+- Latest progress entry: `PRG-007`
 
 ## Ticket Status
 
@@ -13,7 +13,7 @@
 | --- | --- | --- | --- | --- | --- |
 | PLN-001 | Foundation and Build Tooling | done | 2026-03-31 | `f37b95a` | Repository skeleton, package scaffold, and placeholder non-code assets are in place. |
 | PLN-002 | Shared Contracts and Models | done | 2026-03-31 | `02f0283` | Shared IPC/topology schemas and core C/Python type definitions are frozen for the first slice. |
-| PLN-003 | Datapath IPC Stub in C | not started | 2026-03-31 |  |  |
+| PLN-003 | Datapath IPC Stub in C | done | 2026-03-31 | `550aa35` | Stub daemon, framing layer, Unix socket server, and smoke test are in place. |
 | PLN-004 | Python IPC Client and Controller State | not started | 2026-03-31 |  |  |
 | PLN-005 | Controller Bootstrap, Health API, and CLI Status | not started | 2026-03-31 |  |  |
 | PLN-006 | Config Parsing, Validation, and Effective Runtime Policy | not started | 2026-03-31 |  |  |
@@ -166,6 +166,45 @@ Entries are append-only and ordered so session history can be reconstructed with
 - Next step:
   - start `PLN-003` and implement the C IPC framing/helpers and stub datapath socket server against these contracts
 - Commit: `02f0283` `contracts: freeze the initial shared schemas and core type definitions`
+
+### PRG-007 | 2026-03-31
+
+- Ticket: PLN-003
+- Status change: not started -> done
+- Implemented:
+  - added the datapath daemon entrypoint, lifecycle wrapper, explicit health/stats/logging modules, and a reusable Unix socket IPC server
+  - added bounded JSON frame read/write helpers plus request parsing and success/error response serialization for the current control slice
+  - implemented `ping`, `get_version`, and `get_health`, with typed error responses for unknown commands and malformed requests
+  - wired Meson to build `pktlab-dpdkd` and added an integration smoke test that exercises framing, success responses, and error responses
+- Files touched:
+  - `dpdkd/meson.build`
+  - `dpdkd/src/main.c`
+  - `dpdkd/src/daemon.c`
+  - `dpdkd/src/daemon.h`
+  - `dpdkd/src/log.c`
+  - `dpdkd/src/log.h`
+  - `dpdkd/src/health.c`
+  - `dpdkd/src/health.h`
+  - `dpdkd/src/stats.c`
+  - `dpdkd/src/stats.h`
+  - `dpdkd/src/json_proto.c`
+  - `dpdkd/src/json_proto.h`
+  - `dpdkd/src/ipc_server.c`
+  - `dpdkd/src/ipc_server.h`
+  - `dpdkd/tests/integration/test_ipc_smoke.py`
+- Verification:
+  - configured the build with `meson setup build/dpdkd dpdkd --reconfigure`
+  - compiled the daemon with `meson compile -C build/dpdkd`
+  - ran the standalone smoke test with `python3 dpdkd/tests/integration/test_ipc_smoke.py build/dpdkd/pktlab-dpdkd`
+  - ran the integrated Meson test with `meson test -C build/dpdkd --print-errorlogs`
+- Remaining:
+  - no remaining work within `PLN-003`
+- Risks or blockers:
+  - the default socket path remains `/run/pktlab/dpdkd.sock`, but non-root verification used `--socket-path` to avoid host permission assumptions during local testing
+  - JSON handling is intentionally narrow and bounded for the current command set; later tickets should extend it only as the protocol surface grows
+- Next step:
+  - start `PLN-004` and build the Python datapath client/protocol/state layer against this running C stub
+- Commit: `550aa35` `dpdkd: add the IPC stub daemon and smoke test`
 
 ## Read Before Continuing
 
