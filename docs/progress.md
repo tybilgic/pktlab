@@ -4,8 +4,8 @@
 
 - Active milestone: `M1`
 - Active ticket: `PLN-004`
-- Overall state: `c-side IPC stub completed; python control-path work can begin`
-- Latest progress entry: `PRG-008`
+- Overall state: `PLN-004 code is implemented; full dependency-backed verification is blocked by missing host Python packaging tools`
+- Latest progress entry: `PRG-009`
 
 ## Ticket Status
 
@@ -14,7 +14,7 @@
 | PLN-001 | Foundation and Build Tooling | done | 2026-03-31 | `f37b95a` | Repository skeleton, package scaffold, and placeholder non-code assets are in place. |
 | PLN-002 | Shared Contracts and Models | done | 2026-03-31 | `02f0283` | Shared IPC/topology schemas and core C/Python type definitions are frozen for the first slice. |
 | PLN-003 | Datapath IPC Stub in C | done | 2026-03-31 | `550aa35` | Stub daemon, framing layer, Unix socket server, and smoke test are in place. |
-| PLN-004 | Python IPC Client and Controller State | not started | 2026-03-31 |  |  |
+| PLN-004 | Python IPC Client and Controller State | in progress | 2026-03-31 |  | Code is in place; full IPC/client verification needs `pydantic` and Python packaging tools installed on the host. |
 | PLN-005 | Controller Bootstrap, Health API, and CLI Status | not started | 2026-03-31 |  |  |
 | PLN-006 | Config Parsing, Validation, and Effective Runtime Policy | not started | 2026-03-31 |  |  |
 | PLN-007 | Topology Primitives and TAP Reconciliation | not started | 2026-03-31 |  |  |
@@ -230,6 +230,49 @@ Entries are append-only and ordered so session history can be reconstructed with
 - Next step:
   - start implementing the Python IPC protocol, client, and controller state modules for `PLN-004`
 - Commit: `3112214` `docs: make the README the current build and usage reference`
+
+### PRG-009 | 2026-03-31
+
+- Ticket: PLN-004
+- Status change: not started -> in progress
+- Implemented:
+  - added Python IPC request/response models, length-prefixed framing helpers, and a typed Unix-socket datapath client for `ping`, `get_version`, and `get_health`
+  - added explicit desired state, observed state, and deterministic reconcile-plan models for the controller
+  - added controller-side unit and integration tests for the IPC/state slice, with explicit skips when host dependencies such as `pydantic` are unavailable
+  - updated the README with controller dependency installation guidance and the new controller test commands
+- Files touched:
+  - `ctrld/pktlab_ctrld/error.py`
+  - `ctrld/pktlab_ctrld/dpdk_client/__init__.py`
+  - `ctrld/pktlab_ctrld/dpdk_client/models.py`
+  - `ctrld/pktlab_ctrld/dpdk_client/protocol.py`
+  - `ctrld/pktlab_ctrld/dpdk_client/client.py`
+  - `ctrld/pktlab_ctrld/state/__init__.py`
+  - `ctrld/pktlab_ctrld/state/desired.py`
+  - `ctrld/pktlab_ctrld/state/observed.py`
+  - `ctrld/pktlab_ctrld/state/reconcile.py`
+  - `ctrld/tests/__init__.py`
+  - `ctrld/tests/unit/__init__.py`
+  - `ctrld/tests/integration/__init__.py`
+  - `ctrld/tests/unit/test_dpdk_protocol.py`
+  - `ctrld/tests/unit/test_dpdk_client.py`
+  - `ctrld/tests/unit/test_state_reconcile.py`
+  - `ctrld/tests/integration/test_dpdk_client_stub.py`
+  - `README.md`
+  - `docs/tickets/PLN-004-python-ipc-client-and-controller-state.md`
+  - `docs/progress.md`
+- Verification:
+  - ran `python3 -m compileall ctrld/pktlab_ctrld ctrld/tests`
+  - ran `python3 -m unittest discover -s ctrld/tests -t ctrld -v`
+  - ran `python3 -m unittest discover -s ctrld/tests/unit -t ctrld -p 'test_state_reconcile.py' -v`
+  - ran `git diff --check`
+- Remaining:
+  - install host Python packaging tools and the declared controller dependencies, then rerun the full controller test suite with the `pydantic`-backed IPC/client tests active instead of skipped
+- Risks or blockers:
+  - the host image does not provide `pip` or `venv`, so I could not install `pydantic` locally to fully exercise the typed datapath client against the C stub daemon
+  - `sudo` requires an interactive password in this environment, so I could not self-install the missing host packages
+- Next step:
+  - either provision `python3-pip` and `python3-venv` on the host or provide an interpreter with `pydantic` available, then finish `PLN-004` verification and proceed to `PLN-005`
+- Commit: pending
 
 ## Read Before Continuing
 

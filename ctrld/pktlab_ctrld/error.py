@@ -9,6 +9,7 @@ from typing import Any
 class ErrorCode(StrEnum):
     """Project-level typed error codes."""
 
+    DATAPATH_TRANSPORT_ERROR = "DATAPATH_TRANSPORT_ERROR"
     INVALID_REQUEST = "INVALID_REQUEST"
     INVALID_PAYLOAD = "INVALID_PAYLOAD"
     UNKNOWN_COMMAND = "UNKNOWN_COMMAND"
@@ -71,6 +72,17 @@ class DatapathProtocolError(PktlabError):
         )
 
 
+class DatapathTransportError(PktlabError):
+    """Typed transport failure while talking to the datapath socket."""
+
+    def __init__(self, message: str, *, context: dict[str, Any] | None = None) -> None:
+        super().__init__(
+            ErrorCode.DATAPATH_TRANSPORT_ERROR,
+            message,
+            context=context,
+        )
+
+
 class ProcessExecutionError(PktlabError):
     """Typed external process failure."""
 
@@ -84,6 +96,7 @@ class ProcessExecutionError(PktlabError):
 
 __all__ = [
     "DatapathProtocolError",
+    "DatapathTransportError",
     "ErrorCode",
     "PktlabError",
     "ProcessExecutionError",

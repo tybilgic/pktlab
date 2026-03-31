@@ -12,6 +12,9 @@ Implemented today:
 - shared IPC and topology contract files
 - `pktlab-dpdkd` stub daemon with Unix socket IPC
 - datapath smoke test covering framing, success responses, and error responses
+- Python datapath IPC framing/helpers, typed Unix-socket client, and controller
+  desired/observed/reconcile state models
+- controller-side unit/integration test scaffolding for the new IPC/state slice
 
 Not implemented yet:
 
@@ -20,8 +23,10 @@ Not implemented yet:
 - topology application and teardown
 - DPDK EAL, TAP PMD ports, forwarding loop, and rules engine
 
-The current implementation baseline covers `PLN-001`, `PLN-002`, and `PLN-003`. Progress history
-and the active ticket live in [docs/progress.md](docs/progress.md).
+The current implementation baseline covers `PLN-001` through the code portion of `PLN-004`.
+Dependency-backed verification of the new Python IPC client tests still requires the declared
+controller dependencies to be installed on the host. Progress history and the active ticket live in
+[docs/progress.md](docs/progress.md).
 
 ## README Policy
 
@@ -61,6 +66,21 @@ Current verified requirements for the implemented slice:
 - `ninja`
 - a C compiler such as `cc`
 
+Controller-side runtime and tests also depend on the packages declared in `ctrld/pyproject.toml`
+and `ctl/pyproject.toml`, notably `pydantic`.
+
+If your Ubuntu host image does not already provide Python packaging tools, install them first:
+
+```sh
+sudo apt-get install python3-pip python3-venv
+```
+
+Then install the editable controller and CLI packages:
+
+```sh
+python3 -m pip install --user -e ctrld -e ctl
+```
+
 The root `Makefile` is still scaffold-level. Use the explicit commands below as the authoritative
 workflow until later tickets wire the make targets to the real build and test steps.
 
@@ -92,6 +112,25 @@ Run the Meson-driven datapath test suite:
 ```sh
 meson test -C build/dpdkd --print-errorlogs
 ```
+
+Run the controller test discovery:
+
+```sh
+python3 -m unittest discover -s ctrld/tests -t ctrld -v
+```
+
+Run the pure state reconcile tests without the controller dependency set:
+
+```sh
+python3 -m unittest discover -s ctrld/tests/unit -t ctrld -p 'test_state_reconcile.py' -v
+```
+
+Controller test note:
+
+- if `pydantic` is not installed, the `dpdk_client` unit/integration tests skip with an explicit
+  message instead of failing import discovery
+- once the editable controller package is installed, the same `unittest discover` command exercises
+  the typed IPC client and its integration test against the C stub daemon
 
 Optional contract sanity checks:
 
@@ -137,6 +176,8 @@ As a developer:
 - open the active ticket from [docs/tickets/README.md](docs/tickets/README.md)
 - read the latest related commit message when progress history points to it
 - inspect only the files relevant to the active ticket before continuing work
+- install the editable Python packages before working on controller or CLI code that depends on
+  third-party libraries such as `pydantic`
 
 ## How To Modify The Project
 
@@ -150,4 +191,5 @@ As a developer:
 
 ## Current Next Step
 
-The next implementation ticket is `PLN-004`: Python IPC client and controller state.
+Finish dependency-backed verification of `PLN-004`, then move on to `PLN-005`: controller
+bootstrap, health API, and CLI status.
