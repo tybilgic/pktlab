@@ -5,5 +5,5 @@ src = ["ctrld/pktlab_ctrld", "ctl/pktlabctl"]
 
 [tool.pytest.ini_options]
 minversion = "8.0"
-testpaths = ["ctrld/tests"]
+testpaths = ["ctrld/tests", "ctl/tests"]
 pythonpath = ["ctrld", "ctl"]
