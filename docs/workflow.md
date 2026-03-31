@@ -35,7 +35,7 @@ For each ticket:
    - what changed
    - what remains
    - follow-up risks or blockers
-5. Create a scoped commit.
+5. Create a scoped commit with a structured commit message.
 
 ## Commit Policy
 
@@ -44,21 +44,71 @@ Commits should be:
 - small enough to review
 - large enough to leave the codebase in a coherent state
 - documented in plain language
+- scoped to one ticket or one coherent sub-slice of a ticket
+- written so a future reader can understand the change without reopening the whole diff
 
-Recommended commit message shape:
+Required commit message shape:
 
 ```text
-<area>: <what changed>
+<area>: <what the change achieves>
+
+Why:
+- why this change is necessary now
+
+Approach:
+- how the change solves the problem
+
+Tradeoffs:
+- optional, include when an alternative approach was considered or deferred
 ```
 
 Examples:
 
 ```text
-schemas: add initial topology and IPC contracts
-ctrld: add dpdk unix socket client and health checks
-topology: implement namespace and veth lifecycle helpers
-dpdkd: add TAP PMD startup and port discovery
+schemas: define the initial topology and IPC contracts
+
+Why:
+- later C and Python modules need one shared contract to avoid drift
+
+Approach:
+- add frozen schema files before implementing transport or parsing logic
+
+ctrld: add unix socket health checks for datapath supervision
+
+Why:
+- controller readiness depends on confirmed IPC health, not just process spawn
+
+Approach:
+- add a typed datapath client and use it from the supervisor readiness path
+
+topology: add namespace and veth lifecycle primitives
+
+Why:
+- topology apply/destroy needs centralized ownership of kernel-visible lab objects
+
+Approach:
+- isolate namespace and link operations in dedicated modules instead of scattering shell calls
+
+dpdkd: start TAP PMD ports for controller-managed lab topology
+
+Why:
+- the datapath must create dtap interfaces while the controller remains topology authority
+
+Approach:
+- launch TAP PMD devices from dpdkd and let the controller reconcile them into bridges after startup
+
+Tradeoffs:
+- this keeps ownership boundaries explicit, at the cost of a delayed interface binding step
 ```
+
+Commit message guidance:
+
+- the subject line should say what the change achieves, not just what files changed
+- `Why` is required
+- `Approach` is required
+- `Tradeoffs` is required when there was a meaningful design choice, compromise, or deferred alternative
+- avoid vague subjects such as `fix stuff`, `updates`, or `wip`
+- if a change spans multiple concerns, split it into smaller commits
 
 ## Progress Update Format
 
@@ -72,6 +122,7 @@ When a ticket changes state, record:
 - verification run
 - next step
 - related commit hash once committed
+- commit subject
 
 ## Resuming After Interruptions
 

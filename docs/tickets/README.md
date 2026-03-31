@@ -28,3 +28,4 @@ These tickets are the authoritative implementation backlog for the MVP.
 - Use one ticket as the active source of truth for the next implementation slice.
 - Update [docs/progress.md](../progress.md) when ticket status changes.
 - Prefer finishing a coherent sub-slice and committing it before switching tickets.
+- Each commit should cover one ticket or one coherent sub-slice and use the structured commit message format from [docs/workflow.md](../workflow.md).

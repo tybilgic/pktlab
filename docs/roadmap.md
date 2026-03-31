@@ -116,7 +116,12 @@ Outcome:
 
 - Every implementation step should map to one ticket or a clearly scoped sub-slice of a ticket.
 - After each completed slice, update [docs/progress.md](progress.md).
-- After each meaningful slice, create a well-scoped commit with a descriptive message.
+- After each meaningful slice, create a well-scoped commit tied to one ticket or one coherent sub-slice.
+- Commit messages must explain:
+  - what the change achieves
+  - why it is necessary
+  - the preferred approach used
+  - tradeoffs versus alternatives when that context matters
 - Future sessions should begin by reading:
   - [docs/progress.md](progress.md)
   - the active ticket in [docs/tickets/README.md](tickets/README.md)
