@@ -21,7 +21,7 @@ Allowed values:
 - `blocked`
 - `done`
 
-`docs/progress.md` is the source of truth for status.
+`docs/progress.md` is the source of truth for status and recorded project history.
 
 ## Implementation Protocol
 
@@ -35,6 +35,7 @@ For each ticket:
    - what changed
    - what remains
    - follow-up risks or blockers
+   - the ordered progress log entry for this slice
 5. Create a scoped commit with a structured commit message.
 
 ## Commit Policy
@@ -112,8 +113,9 @@ Commit message guidance:
 
 ## Progress Update Format
 
-When a ticket changes state, record:
+When a ticket changes state or any meaningful project change is made, record:
 
+- ordered progress entry id
 - date
 - ticket id
 - status
@@ -124,6 +126,13 @@ When a ticket changes state, record:
 - related commit hash once committed
 - commit subject
 
+Progress log ordering:
+
+- progress entries are append-only
+- use monotonically increasing ids such as `PRG-001`, `PRG-002`, `PRG-003`
+- never rewrite older entries to preserve the sequence of decisions and changes
+- if clarification is needed later, append a new entry instead of replacing the old one
+
 ## Resuming After Interruptions
 
 When work stops mid-ticket:
@@ -131,6 +140,7 @@ When work stops mid-ticket:
 - leave the ticket `in progress`
 - add a short handoff note in [docs/progress.md](progress.md)
 - record the exact next technical step
+- if any code or documentation changed, ensure the interruption is still captured as the next ordered progress entry
 
 ## Reality Check
 

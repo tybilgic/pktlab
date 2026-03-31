@@ -116,6 +116,7 @@ Outcome:
 
 - Every implementation step should map to one ticket or a clearly scoped sub-slice of a ticket.
 - After each completed slice, update [docs/progress.md](progress.md).
+- All meaningful changes, including planning and documentation changes, must be recorded in the ordered progress log.
 - After each meaningful slice, create a well-scoped commit tied to one ticket or one coherent sub-slice.
 - Commit messages must explain:
   - what the change achieves
@@ -126,4 +127,5 @@ Outcome:
   - [docs/progress.md](progress.md)
   - the active ticket in [docs/tickets/README.md](tickets/README.md)
   - the latest relevant commit(s)
+- If the progress log references a commit for context, read that commit message before continuing work.
 - For accuracy, a quick targeted inspection of changed files is still required before continuing work. The tracking docs reduce rediscovery; they do not replace verification.
