@@ -14,7 +14,7 @@
 | PLN-001 | Foundation and Build Tooling | done | 2026-03-31 | `f37b95a` | Repository skeleton, package scaffold, and placeholder non-code assets are in place. |
 | PLN-002 | Shared Contracts and Models | done | 2026-03-31 | `02f0283` | Shared IPC/topology schemas and core C/Python type definitions are frozen for the first slice. |
 | PLN-003 | Datapath IPC Stub in C | done | 2026-03-31 | `550aa35` | Stub daemon, framing layer, Unix socket server, and smoke test are in place. |
-| PLN-004 | Python IPC Client and Controller State | done | 2026-03-31 | `cfcedac`, `a87eb45` | Full unit and integration verification completed under the repo virtualenv; next work is `PLN-005`. |
+| PLN-004 | Python IPC Client and Controller State | done | 2026-03-31 | `cfcedac`, `a87eb45`, `20af4ba` | Full unit and integration verification completed under the repo virtualenv; next work is `PLN-005`. |
 | PLN-005 | Controller Bootstrap, Health API, and CLI Status | not started | 2026-03-31 |  |  |
 | PLN-006 | Config Parsing, Validation, and Effective Runtime Policy | not started | 2026-03-31 |  |  |
 | PLN-007 | Topology Primitives and TAP Reconciliation | not started | 2026-03-31 |  |  |
@@ -297,7 +297,7 @@ Entries are append-only and ordered so session history can be reconstructed with
   - none for this ticket
 - Next step:
   - start `PLN-005` and wire the controller bootstrap, health API, and CLI status path on top of the now-verified Python IPC/state layer
-- Commit: pending
+- Commit: `20af4ba` `pln-004: complete verification of the Python IPC and state slice`
 
 ## Read Before Continuing
 
