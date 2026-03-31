@@ -5,7 +5,7 @@
 - Active milestone: `M1`
 - Active ticket: `PLN-004`
 - Overall state: `c-side IPC stub completed; python control-path work can begin`
-- Latest progress entry: `PRG-007`
+- Latest progress entry: `PRG-008`
 
 ## Ticket Status
 
@@ -205,6 +205,31 @@ Entries are append-only and ordered so session history can be reconstructed with
 - Next step:
   - start `PLN-004` and build the Python datapath client/protocol/state layer against this running C stub
 - Commit: `550aa35` `dpdkd: add the IPC stub daemon and smoke test`
+
+### PRG-008 | 2026-03-31
+
+- Ticket: documentation
+- Status change: none -> README operational reference added
+- Implemented:
+  - expanded the root README so it documents the current verified build, test, and run commands instead of only describing the project at a high level
+  - documented the current user/developer expectations, including what is implemented today and what is still stubbed
+  - made README synchronization an explicit project rule in the workflow, roadmap, and ticket index
+- Files touched:
+  - `README.md`
+  - `docs/workflow.md`
+  - `docs/roadmap.md`
+  - `docs/tickets/README.md`
+- Verification:
+  - reviewed the current datapath, Python entrypoints, and build/test configuration before documenting commands
+  - checked the updated docs for consistency
+  - ran `git diff --check`
+- Remaining:
+  - continue `PLN-004`
+- Risks or blockers:
+  - the root `Makefile` remains scaffold-level, so the README intentionally documents direct Meson and Python commands as the current source of truth
+- Next step:
+  - start implementing the Python IPC protocol, client, and controller state modules for `PLN-004`
+- Commit: `3112214` `docs: make the README the current build and usage reference`
 
 ## Read Before Continuing
 
