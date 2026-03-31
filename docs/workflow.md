@@ -30,13 +30,14 @@ For each ticket:
 1. Re-read the ticket scope and acceptance criteria.
 2. Implement one coherent vertical slice.
 3. Run the smallest relevant verification for that slice.
-4. Update [docs/progress.md](progress.md):
+4. If the slice changes build, test, run, install, or developer usage, update [README.md](../README.md) in the same slice.
+5. Update [docs/progress.md](progress.md):
    - status
    - what changed
    - what remains
    - follow-up risks or blockers
    - the ordered progress log entry for this slice
-5. Create a scoped commit with a structured commit message.
+6. Create a scoped commit with a structured commit message.
 
 ## Commit Policy
 
@@ -132,6 +133,15 @@ Progress log ordering:
 - use monotonically increasing ids such as `PRG-001`, `PRG-002`, `PRG-003`
 - never rewrite older entries to preserve the sequence of decisions and changes
 - if clarification is needed later, append a new entry instead of replacing the old one
+
+## README Sync Rule
+
+`README.md` is the current operational reference for the repository.
+
+- keep it synchronized with the commands and workflows that actually work in the current tree
+- update it whenever build, test, run, install, or developer usage changes
+- do not describe planned commands as if they already exist
+- when convenience wrappers such as `make` targets lag behind the real workflow, document the real workflow
 
 ## Resuming After Interruptions
 

@@ -118,6 +118,7 @@ Outcome:
 - After each completed slice, update [docs/progress.md](progress.md).
 - All meaningful changes, including planning and documentation changes, must be recorded in the ordered progress log.
 - After each meaningful slice, create a well-scoped commit tied to one ticket or one coherent sub-slice.
+- If a slice changes build, test, run, install, or developer workflow, update [README.md](../README.md) in the same slice so the repository entrypoint stays current.
 - Commit messages must explain:
   - what the change achieves
   - why it is necessary
