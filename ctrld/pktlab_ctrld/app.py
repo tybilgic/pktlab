@@ -240,6 +240,15 @@ class ControllerRuntime:
             self._controller_message = "controller ready without datapath supervision"
             return
 
+        if not self._desired_state.desired_datapath_running:
+            if datapath_status.running:
+                self._controller_state = "degraded"
+                self._controller_message = "datapath process is running without an active topology"
+                return
+            self._controller_state = "running"
+            self._controller_message = "controller ready without active topology"
+            return
+
         if not datapath_status.running:
             self._controller_state = "degraded"
             self._controller_message = datapath_status.last_error or "datapath process is not running"

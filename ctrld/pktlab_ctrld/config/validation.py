@@ -140,6 +140,7 @@ def validate_topology_config(config: TopologyConfigModel) -> ValidatedTopologyCo
     )
     _collect_ruleset_issues(
         config.rules,
+        path_prefix="rules",
         allowed_port_names=dpdk_port_names,
         issues=issues,
     )
@@ -617,6 +618,7 @@ def _collect_bridge_side_interface_issues(
 def _collect_ruleset_issues(
     ruleset: RulesetModel,
     *,
+    path_prefix: str | None = None,
     allowed_port_names: Collection[str] | None,
     issues: list[ValidationIssue],
 ) -> None:
@@ -624,30 +626,36 @@ def _collect_ruleset_issues(
     seen_ids: dict[int, int] = {}
     _validate_rule_action(
         ruleset.default_action,
-        path="rules.default_action",
+        path=_path_with_prefix(path_prefix, "default_action"),
         allowed_port_names=allowed_ports if allowed_port_names is not None else None,
         issues=issues,
     )
 
     for index, rule in enumerate(ruleset.entries):
-        path_prefix = f"rules.entries[{index}]"
+        entry_path = _path_with_prefix(path_prefix, f"entries[{index}]")
         first_index = seen_ids.setdefault(rule.id, index)
         if first_index != index:
             issues.append(
                 ValidationIssue(
-                    path=f"{path_prefix}.id",
+                    path=f"{entry_path}.id",
                     code="duplicate_rule_id",
                     message=f"rule id {rule.id} duplicates the entry at index {first_index}",
                 )
             )
 
-        _validate_rule_match(rule, path_prefix=path_prefix, issues=issues)
+        _validate_rule_match(rule, path_prefix=entry_path, issues=issues)
         _validate_rule_action(
             rule.action,
-            path=f"{path_prefix}.action",
+            path=f"{entry_path}.action",
             allowed_port_names=allowed_ports if allowed_port_names is not None else None,
             issues=issues,
         )
+
+
+def _path_with_prefix(path_prefix: str | None, suffix: str) -> str:
+    if path_prefix is None or not path_prefix:
+        return suffix
+    return f"{path_prefix}.{suffix}"
 
 
 def _validate_rule_match(

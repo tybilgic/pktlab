@@ -91,7 +91,9 @@ class RulesConfigTests(unittest.TestCase):
         self.assertIn("duplicate_rule_id", issue_codes)
         self.assertIn("icmp_port_match", issue_codes)
         self.assertIn("invalid_ipv4_address", issue_codes)
-        self.assertIn("rules.default_action.port", issue_paths)
+        self.assertIn("default_action.port", issue_paths)
+        self.assertIn("entries[0].match", issue_paths)
+        self.assertIn("entries[1].id", issue_paths)
 
 
 if __name__ == "__main__":

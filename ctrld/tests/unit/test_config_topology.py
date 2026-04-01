@@ -171,6 +171,7 @@ class TopologyConfigTests(unittest.TestCase):
         self.assertIn("undersized_hugepages", issue_codes)
         self.assertIn("processes.dpdkd.namespace", issue_paths)
         self.assertIn("routes[0].namespace", issue_paths)
+        self.assertIn("rules.default_action.port", issue_paths)
 
     def test_effective_runtime_derivation_rejects_undersized_memory(self) -> None:
         requested = DpdkProcessConfigModel(
