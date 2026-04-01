@@ -99,6 +99,7 @@ The bridge-based binding model is intentional. Do not replace it with TAP PMD `r
   - `POST /topology/destroy`
   - `pktlabctl topology apply -f ...`
   - `pktlabctl topology destroy`
+- follow-up verification fixed controller health after `destroy_topology()`, so the controller returns to a healthy no-topology steady state and only degrades if a datapath stays up unexpectedly
 - verified with:
   - `.venv/bin/python -m compileall ctrld/pktlab_ctrld ctrld/tests ctl/pktlabctl ctl/tests`
   - `.venv/bin/python -m unittest discover -s ctrld/tests -t ctrld -v`
@@ -107,4 +108,5 @@ The bridge-based binding model is intentional. Do not replace it with TAP PMD `r
 - related commits:
   - `d83aba1` `topology: add controller-owned topology primitives and orchestration`
   - `aa59a77` `api: add topology apply and destroy routes plus CLI commands`
+  - `1458a90` `ctrld: fix destroy-state health and standalone rules paths`
 - next ticket: `PLN-008`

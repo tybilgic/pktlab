@@ -79,6 +79,7 @@ This ticket should make the later topology manager mostly procedural. By the tim
 - implemented semantic validation and effective runtime derivation in `ctrld/pktlab_ctrld/config/validation.py`
 - extended controller state models so requested and effective datapath runtime settings can be carried forward into later topology work
 - added unit coverage for valid and invalid parsing, semantic issue aggregation, runtime derivation, and controller state exposure
+- follow-up verification fixed standalone rules validation paths so standalone files report root-relative issues such as `default_action.port`, while topology-embedded rules keep the `rules.*` prefix
 - verified with:
   - `.venv/bin/python -m compileall ctrld/pktlab_ctrld ctrld/tests`
   - `.venv/bin/python -m unittest discover -s ctrld/tests/unit -t ctrld -v`
@@ -87,4 +88,5 @@ This ticket should make the later topology manager mostly procedural. By the tim
   - `git diff --check`
 - related commits:
   - `e26821b` `config: add topology and rules validation with conservative runtime defaults`
+  - `1458a90` `ctrld: fix destroy-state health and standalone rules paths`
 - next ticket: `PLN-007`

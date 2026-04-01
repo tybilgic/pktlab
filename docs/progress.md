@@ -4,8 +4,8 @@
 
 - Active milestone: `M4`
 - Active ticket: `PLN-008`
-- Overall state: `PLN-007 is complete; controller-owned topology apply/destroy and TAP reconciliation are in place`
-- Latest progress entry: `PRG-013`
+- Overall state: `PLN-006` and `PLN-007` follow-up fixes are merged; implementation can continue with `PLN-008`
+- Latest progress entry: `PRG-014`
 
 ## Ticket Status
 
@@ -16,8 +16,8 @@
 | PLN-003 | Datapath IPC Stub in C | done | 2026-03-31 | `550aa35` | Stub daemon, framing layer, Unix socket server, and smoke test are in place. |
 | PLN-004 | Python IPC Client and Controller State | done | 2026-03-31 | `cfcedac`, `a87eb45`, `20af4ba` | Full unit and integration verification completed under the repo virtualenv; next work is `PLN-005`. |
 | PLN-005 | Controller Bootstrap, Health API, and CLI Status | done | 2026-04-01 | `012be4d`, `fc08760` | Controller supervision, `/health`, `pktlabctl status`, and integration coverage are in place. |
-| PLN-006 | Config Parsing, Validation, and Effective Runtime Policy | done | 2026-04-01 | `e26821b` | Topology/rules parsing, semantic validation, and conservative datapath runtime derivation are in place. |
-| PLN-007 | Topology Primitives and TAP Reconciliation | done | 2026-04-01 | `d83aba1`, `aa59a77` | Controller-owned topology lifecycle, TAP reconciliation, and topology API/CLI commands are in place. |
+| PLN-006 | Config Parsing, Validation, and Effective Runtime Policy | done | 2026-04-01 | `e26821b`, `1458a90` | Topology/rules parsing and runtime derivation are in place; standalone rules now report root-relative validation paths while embedded topology rules keep `rules.*` paths. |
+| PLN-007 | Topology Primitives and TAP Reconciliation | done | 2026-04-01 | `d83aba1`, `aa59a77`, `1458a90` | Controller-owned topology lifecycle and topology API/CLI commands are in place; destroy now returns the controller to a healthy no-topology steady state. |
 | PLN-008 | Datapath EAL, Ports, and Pass-Through Loop | not started | 2026-04-01 |  | next active ticket |
 | PLN-009 | Datapath Status, Stats, and User Surface | not started | 2026-03-31 |  |  |
 | PLN-010 | Rules Engine and Atomic Ruleset Replacement | not started | 2026-03-31 |  |  |
@@ -436,6 +436,43 @@ Entries are append-only and ordered so session history can be reconstructed with
 - Next step:
   - start `PLN-008` and implement the real datapath EAL init, TAP PMD ports, and pass-through forwarding loop
 - Commit: `d83aba1` `topology: add controller-owned topology primitives and orchestration`; `aa59a77` `api: add topology apply and destroy routes plus CLI commands`
+
+### PRG-014 | 2026-04-01
+
+- Ticket: `PLN-006`, `PLN-007`
+- Status change: done -> done with verification follow-up fixes
+- Implemented:
+  - fixed controller health recomputation so `destroy_topology()` settles to `running` when no datapath is desired and only degrades if a datapath remains unexpectedly active
+  - fixed standalone rules validation paths so standalone files report `default_action.*` and `entries[*].*`, while embedded topology rules continue to report `rules.*`
+  - added controller-runtime regression coverage for the post-destroy steady state and the unexpected-running-datapath state
+  - clarified the README so the topology API/CLI surface is documented as implemented, while live TAP-backed apply remains deferred until `PLN-008`
+- Files touched:
+  - `ctrld/pktlab_ctrld/app.py`
+  - `ctrld/pktlab_ctrld/config/validation.py`
+  - `ctrld/tests/unit/test_controller_runtime.py`
+  - `ctrld/tests/unit/test_config_rules.py`
+  - `ctrld/tests/unit/test_config_topology.py`
+  - `README.md`
+  - `docs/tickets/PLN-006-config-parsing-validation-and-effective-runtime-policy.md`
+  - `docs/tickets/PLN-007-topology-primitives-and-tap-reconciliation.md`
+  - `docs/progress.md`
+- Verification:
+  - ran `.venv/bin/python -m compileall ctrld/pktlab_ctrld ctrld/tests`
+  - ran `.venv/bin/python -m unittest discover -s ctrld/tests/unit -t ctrld -p 'test_controller_runtime.py' -v`
+  - ran `.venv/bin/python -m unittest discover -s ctrld/tests/unit -t ctrld -p 'test_config_rules.py' -v`
+  - ran `.venv/bin/python -m unittest discover -s ctrld/tests/unit -t ctrld -p 'test_config_topology.py' -v`
+  - ran `.venv/bin/python -m unittest discover -s ctrld/tests -t ctrld -v`
+  - ran `.venv/bin/python -m unittest discover -s ctl/tests -t ctl -v`
+  - ran `git diff --check`
+- Remaining:
+  - no remaining follow-up work is known for `PLN-006` or `PLN-007`
+- Risks or blockers:
+  - live topology apply is still expected to fail against the current datapath stub because `dtap0` and `dtap1` are not created until `PLN-008`
+- Next step:
+  - resume `PLN-008` and implement the real datapath EAL init, TAP PMD ports, and pass-through forwarding loop
+- Commit:
+  - `1458a90` `ctrld: fix destroy-state health and standalone rules paths`
+  - documentation sync recorded in the current follow-up commit
 
 ## Read Before Continuing
 

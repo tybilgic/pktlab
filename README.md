@@ -19,14 +19,17 @@ Implemented today:
 - `pktlabctl status` with human-readable and `--json` output modes
 - topology YAML parsing, standalone rules YAML parsing, semantic validation, and
   conservative effective datapath runtime defaults for small machines
-- controller-owned topology apply/destroy orchestration, including namespace/bridge lifecycle,
-  namespaced datapath restart, and TAP PMD reconciliation
-- `pktlabctl topology apply -f ...` and `pktlabctl topology destroy`
+- controller-owned topology apply/destroy orchestration modules, including namespace/bridge
+  lifecycle, namespaced datapath restart, and TAP reconciliation logic
+- topology API and CLI surface for `pktlabctl topology apply -f ...` and `pktlabctl topology destroy`
 - controller- and CLI-side integration coverage for the first end-to-end control slice
 
 Not implemented yet:
 
 - DPDK EAL, TAP PMD ports, forwarding loop, and rules engine
+- live end-to-end topology apply against the real datapath; the current IPC-only stub does not
+  create `dtap0` and `dtap1`, so controller TAP reconciliation will time out on a real host until
+  `PLN-008` lands
 
 The current implementation baseline covers `PLN-001` through `PLN-007`. Progress history and the
 active ticket live in [docs/progress.md](docs/progress.md).
@@ -195,6 +198,9 @@ Controller runtime notes:
 - `pktlabctl` talks only to the controller HTTP API, not to the datapath socket directly
 - topology apply will stop any currently supervised datapath instance and restart it inside the
   configured datapath namespace before TAP reconciliation
+- with the current IPC-only datapath stub, live `topology apply` is expected to fail while waiting
+  for `dtap0` and `dtap1`; the API and CLI surface are implemented and covered in tests, but real
+  TAP-backed success starts with `PLN-008`
 - local development should usually pass `--dpdkd-socket-path /tmp/...` unless `/run/pktlab/` is
   already provisioned and writable
 - live topology apply/destroy requires the controller process to have the privileges needed for
@@ -208,8 +214,9 @@ As a user:
 
 - treat the repo as an implementation baseline, not a complete packet-processing lab yet
 - use `pktlab-ctrld` plus `pktlabctl status` to exercise the first complete control path
-- use `pktlabctl topology apply -f <file>` and `pktlabctl topology destroy` to drive the
-  controller-owned topology lifecycle once the controller is running with sufficient privileges
+- treat `pktlabctl topology apply -f <file>` and `pktlabctl topology destroy` as implemented
+  control-plane surface, but not yet a live datapath workflow; a real host run still waits on the
+  TAP PMD datapath work in `PLN-008`
 - use `pktlab-dpdkd` directly only when validating datapath-side IPC behavior
 - use the schemas in `schemas/` as the current contract reference
 
