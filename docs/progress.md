@@ -2,10 +2,10 @@
 
 ## Current Focus
 
-- Active milestone: `M3`
-- Active ticket: `PLN-007`
-- Overall state: `PLN-006 is complete; config parsing, validation, and conservative runtime defaults are in place`
-- Latest progress entry: `PRG-012`
+- Active milestone: `M4`
+- Active ticket: `PLN-008`
+- Overall state: `PLN-007 is complete; controller-owned topology apply/destroy and TAP reconciliation are in place`
+- Latest progress entry: `PRG-013`
 
 ## Ticket Status
 
@@ -17,8 +17,8 @@
 | PLN-004 | Python IPC Client and Controller State | done | 2026-03-31 | `cfcedac`, `a87eb45`, `20af4ba` | Full unit and integration verification completed under the repo virtualenv; next work is `PLN-005`. |
 | PLN-005 | Controller Bootstrap, Health API, and CLI Status | done | 2026-04-01 | `012be4d`, `fc08760` | Controller supervision, `/health`, `pktlabctl status`, and integration coverage are in place. |
 | PLN-006 | Config Parsing, Validation, and Effective Runtime Policy | done | 2026-04-01 | `e26821b` | Topology/rules parsing, semantic validation, and conservative datapath runtime derivation are in place. |
-| PLN-007 | Topology Primitives and TAP Reconciliation | not started | 2026-04-01 |  | next active ticket |
-| PLN-008 | Datapath EAL, Ports, and Pass-Through Loop | not started | 2026-03-31 |  |  |
+| PLN-007 | Topology Primitives and TAP Reconciliation | done | 2026-04-01 | `d83aba1`, `aa59a77` | Controller-owned topology lifecycle, TAP reconciliation, and topology API/CLI commands are in place. |
+| PLN-008 | Datapath EAL, Ports, and Pass-Through Loop | not started | 2026-04-01 |  | next active ticket |
 | PLN-009 | Datapath Status, Stats, and User Surface | not started | 2026-03-31 |  |  |
 | PLN-010 | Rules Engine and Atomic Ruleset Replacement | not started | 2026-03-31 |  |  |
 | PLN-011 | Capture, Scenarios, and Metrics | not started | 2026-03-31 |  |  |
@@ -384,6 +384,58 @@ Entries are append-only and ordered so session history can be reconstructed with
 - Next step:
   - start `PLN-007` and implement namespace, link, route, bridge, and TAP reconciliation primitives on top of the validated desired state
 - Commit: `e26821b` `config: add topology and rules validation with conservative runtime defaults`
+
+### PRG-013 | 2026-04-01
+
+- Ticket: PLN-007
+- Status change: not started -> done
+- Implemented:
+  - added centralized subprocess, netns, and timeout helpers for controller-owned topology mutations
+  - added namespace, link, bridge, route, and TAP reconciliation modules plus a serialized topology manager
+  - extended the controller runtime and supervisor so topology apply restarts `pktlab-dpdkd` in the datapath namespace and tracks topology state
+  - added controller routes and CLI commands for topology apply/destroy while preserving the `pktlabctl -> pktlab-ctrld` boundary
+  - added fake-system integration coverage for topology orchestration plus API and CLI smoke tests for the new surface
+- Files touched:
+  - `ctrld/pktlab_ctrld/error.py`
+  - `ctrld/pktlab_ctrld/config/validation.py`
+  - `ctrld/pktlab_ctrld/process/supervisor.py`
+  - `ctrld/pktlab_ctrld/app.py`
+  - `ctrld/pktlab_ctrld/util/__init__.py`
+  - `ctrld/pktlab_ctrld/util/subprocess.py`
+  - `ctrld/pktlab_ctrld/util/netns.py`
+  - `ctrld/pktlab_ctrld/util/time.py`
+  - `ctrld/pktlab_ctrld/topology/__init__.py`
+  - `ctrld/pktlab_ctrld/topology/namespaces.py`
+  - `ctrld/pktlab_ctrld/topology/links.py`
+  - `ctrld/pktlab_ctrld/topology/routes.py`
+  - `ctrld/pktlab_ctrld/topology/taps.py`
+  - `ctrld/pktlab_ctrld/topology/manager.py`
+  - `ctrld/pktlab_ctrld/api/app.py`
+  - `ctrld/pktlab_ctrld/api/models.py`
+  - `ctrld/pktlab_ctrld/api/routes_topology.py`
+  - `ctrld/tests/integration/test_topology_manager.py`
+  - `ctrld/tests/integration/test_topology_api.py`
+  - `ctl/pktlabctl/cli.py`
+  - `ctl/pktlabctl/client.py`
+  - `ctl/pktlabctl/output.py`
+  - `ctl/pktlabctl/commands/topology.py`
+  - `ctl/tests/integration/test_topology_command.py`
+  - `README.md`
+  - `docs/tickets/PLN-007-topology-primitives-and-tap-reconciliation.md`
+  - `docs/progress.md`
+- Verification:
+  - ran `.venv/bin/python -m compileall ctrld/pktlab_ctrld ctrld/tests ctl/pktlabctl ctl/tests`
+  - ran `.venv/bin/python -m unittest discover -s ctrld/tests -t ctrld -v`
+  - ran `.venv/bin/python -m unittest discover -s ctl/tests -t ctl -v`
+  - ran `git diff --check`
+- Remaining:
+  - no remaining work within `PLN-007`
+- Risks or blockers:
+  - topology tests use a fake netns system rather than live privileged namespace mutations, so a real root-backed smoke test is still deferred to later operational hardening
+  - the bridge-side mapping is currently fixed to `veth-in-k` and `veth-out-k` because the topology schema does not yet expose an explicit ingress/egress bridge attachment map
+- Next step:
+  - start `PLN-008` and implement the real datapath EAL init, TAP PMD ports, and pass-through forwarding loop
+- Commit: `d83aba1` `topology: add controller-owned topology primitives and orchestration`; `aa59a77` `api: add topology apply and destroy routes plus CLI commands`
 
 ## Read Before Continuing
 

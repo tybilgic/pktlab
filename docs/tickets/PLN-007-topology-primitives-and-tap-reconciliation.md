@@ -2,7 +2,7 @@
 
 ## Status
 
-`not started`
+`done`
 
 ## Goal
 
@@ -80,3 +80,31 @@ This is the project-specific ownership split: the controller owns the topology, 
 ## Handoff Note
 
 The bridge-based binding model is intentional. Do not replace it with TAP PMD `remote=` unless the design changes explicitly.
+
+## Completion Notes
+
+- implemented centralized command helpers in:
+  - `ctrld/pktlab_ctrld/util/subprocess.py`
+  - `ctrld/pktlab_ctrld/util/netns.py`
+  - `ctrld/pktlab_ctrld/util/time.py`
+- implemented controller-owned topology lifecycle and TAP reconciliation in:
+  - `ctrld/pktlab_ctrld/topology/namespaces.py`
+  - `ctrld/pktlab_ctrld/topology/links.py`
+  - `ctrld/pktlab_ctrld/topology/routes.py`
+  - `ctrld/pktlab_ctrld/topology/taps.py`
+  - `ctrld/pktlab_ctrld/topology/manager.py`
+- extended the controller runtime and supervisor so topology apply restarts `pktlab-dpdkd` inside the datapath namespace before TAP reconciliation
+- implemented:
+  - `POST /topology/apply`
+  - `POST /topology/destroy`
+  - `pktlabctl topology apply -f ...`
+  - `pktlabctl topology destroy`
+- verified with:
+  - `.venv/bin/python -m compileall ctrld/pktlab_ctrld ctrld/tests ctl/pktlabctl ctl/tests`
+  - `.venv/bin/python -m unittest discover -s ctrld/tests -t ctrld -v`
+  - `.venv/bin/python -m unittest discover -s ctl/tests -t ctl -v`
+  - `git diff --check`
+- related commits:
+  - `d83aba1` `topology: add controller-owned topology primitives and orchestration`
+  - `aa59a77` `api: add topology apply and destroy routes plus CLI commands`
+- next ticket: `PLN-008`

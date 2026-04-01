@@ -19,14 +19,16 @@ Implemented today:
 - `pktlabctl status` with human-readable and `--json` output modes
 - topology YAML parsing, standalone rules YAML parsing, semantic validation, and
   conservative effective datapath runtime defaults for small machines
+- controller-owned topology apply/destroy orchestration, including namespace/bridge lifecycle,
+  namespaced datapath restart, and TAP PMD reconciliation
+- `pktlabctl topology apply -f ...` and `pktlabctl topology destroy`
 - controller- and CLI-side integration coverage for the first end-to-end control slice
 
 Not implemented yet:
 
-- topology application and teardown
 - DPDK EAL, TAP PMD ports, forwarding loop, and rules engine
 
-The current implementation baseline covers `PLN-001` through `PLN-006`. Progress history and the
+The current implementation baseline covers `PLN-001` through `PLN-007`. Progress history and the
 active ticket live in [docs/progress.md](docs/progress.md).
 
 ## README Policy
@@ -141,6 +143,8 @@ Controller test note:
 - the `dpdk_client` integration test exercises the typed IPC client against the C stub daemon
 - the config unit tests exercise topology/rules parsing, semantic validation, and effective
   datapath runtime derivation
+- the topology manager test exercises apply/destroy ordering and bridge membership using a fake
+  netns system, because live namespace mutations require elevated privileges
 
 Optional contract sanity checks:
 
@@ -179,6 +183,8 @@ Query the controller through the CLI:
 ```sh
 .venv/bin/pktlabctl --controller-url http://127.0.0.1:8080 status
 .venv/bin/pktlabctl --controller-url http://127.0.0.1:8080 --json status
+.venv/bin/pktlabctl --controller-url http://127.0.0.1:8080 topology apply -f lab/topology.yaml
+.venv/bin/pktlabctl --controller-url http://127.0.0.1:8080 topology destroy
 ```
 
 Controller runtime notes:
@@ -187,8 +193,14 @@ Controller runtime notes:
   `get_health`, and `get_version`
 - controller health is exposed at `GET /health`
 - `pktlabctl` talks only to the controller HTTP API, not to the datapath socket directly
+- topology apply will stop any currently supervised datapath instance and restart it inside the
+  configured datapath namespace before TAP reconciliation
 - local development should usually pass `--dpdkd-socket-path /tmp/...` unless `/run/pktlab/` is
   already provisioned and writable
+- live topology apply/destroy requires the controller process to have the privileges needed for
+  network namespaces, links, routes, and bridges, typically root or `CAP_NET_ADMIN`
+- the current topology manager assumes the datapath namespace exposes `veth-in-k` and `veth-out-k`
+  as the controller-managed bridge-side interfaces
 
 ## How To Use The Project Today
 
@@ -196,6 +208,8 @@ As a user:
 
 - treat the repo as an implementation baseline, not a complete packet-processing lab yet
 - use `pktlab-ctrld` plus `pktlabctl status` to exercise the first complete control path
+- use `pktlabctl topology apply -f <file>` and `pktlabctl topology destroy` to drive the
+  controller-owned topology lifecycle once the controller is running with sufficient privileges
 - use `pktlab-dpdkd` directly only when validating datapath-side IPC behavior
 - use the schemas in `schemas/` as the current contract reference
 
@@ -224,6 +238,8 @@ from pktlab_ctrld.config import (
 - the current conservative datapath defaults are `lcores="1"`, `burst_size=32`,
   `rx_queue_size=256`, `tx_queue_size=256`, `mempool_size` derived from port and queue count with
   a minimum of `2048`, and `hugepages_mb` rounded to 2 MB pages with a controller floor of `256`
+- for the current topology manager, the `dpdk-host` namespace is expected to contain the
+  controller-owned bridge-side interfaces `veth-in-k` and `veth-out-k`
 
 ## How To Modify The Project
 
@@ -237,4 +253,4 @@ from pktlab_ctrld.config import (
 
 ## Current Next Step
 
-Start `PLN-007`: topology primitives and TAP reconciliation.
+Start `PLN-008`: datapath EAL, TAP PMD ports, and the pass-through loop.
