@@ -19,6 +19,8 @@ class SupervisorConfig:
 
     dpdkd_binary: str
     socket_path: str
+    launch_prefix: tuple[str, ...] = ()
+    extra_args: tuple[str, ...] = ()
     startup_timeout_seconds: float = 5.0
     poll_interval_seconds: float = 0.05
     shutdown_timeout_seconds: float = 5.0
@@ -28,6 +30,10 @@ class SupervisorConfig:
             raise ValueError("dpdkd_binary must be a non-empty string")
         if not self.socket_path.strip():
             raise ValueError("socket_path must be a non-empty string")
+        if any(not token.strip() for token in self.launch_prefix):
+            raise ValueError("launch_prefix must not contain empty elements")
+        if any(not token.strip() for token in self.extra_args):
+            raise ValueError("extra_args must not contain empty elements")
         if self.startup_timeout_seconds <= 0:
             raise ValueError("startup_timeout_seconds must be greater than zero")
         if self.poll_interval_seconds <= 0:
@@ -84,8 +90,15 @@ class DpdkdSupervisor:
             self._last_error = None
             self._last_exit_code = None
 
+            command = [
+                *self.config.launch_prefix,
+                self.config.dpdkd_binary,
+                "--socket-path",
+                self.config.socket_path,
+                *self.config.extra_args,
+            ]
             self._process = self._popen_factory(
-                [self.config.dpdkd_binary, "--socket-path", self.config.socket_path],
+                command,
                 stderr=subprocess.PIPE,
                 stdout=subprocess.DEVNULL,
                 text=True,

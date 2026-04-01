@@ -6,9 +6,14 @@ from dataclasses import dataclass
 from threading import RLock
 
 from pktlab_ctrld import __version__
+from pktlab_ctrld.config.validation import ValidatedTopologyConfig
+from pktlab_ctrld.error import ErrorCode, PktlabError
 from pktlab_ctrld.process.supervisor import DatapathProcessStatus, DpdkdSupervisor, SupervisorConfig
 from pktlab_ctrld.state.desired import ControllerStateValue, DesiredState
 from pktlab_ctrld.state.observed import ObservedState
+from pktlab_ctrld.topology.manager import TopologyManager, TopologyOperationResult
+from pktlab_ctrld.types import EffectiveDpdkRuntimeModel
+from pktlab_ctrld.util.netns import NetnsRunner
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,6 +55,8 @@ class ControllerRuntime:
         config: ControllerConfig,
         *,
         supervisor: DpdkdSupervisor | None = None,
+        topology_manager: TopologyManager | None = None,
+        netns_runner: NetnsRunner | None = None,
     ) -> None:
         self.config = config
         self._lock = RLock()
@@ -62,14 +69,14 @@ class ControllerRuntime:
         self._controller_message = "controller is not started"
         self._started = False
         self._supervisor = supervisor
+        self._netns_runner = netns_runner or NetnsRunner()
         if self._supervisor is None and config.supervise_datapath:
-            self._supervisor = DpdkdSupervisor(
-                SupervisorConfig(
-                    dpdkd_binary=config.datapath_binary,
-                    socket_path=config.datapath_socket_path,
-                    startup_timeout_seconds=config.datapath_startup_timeout_seconds,
-                )
-            )
+            self._supervisor = DpdkdSupervisor(self._build_supervisor_config())
+        self._topology_manager = topology_manager or TopologyManager(
+            netns=self._netns_runner,
+            start_datapath=self._start_topology_datapath,
+            stop_datapath=self._stop_topology_datapath,
+        )
 
     @property
     def desired_state(self) -> DesiredState:
@@ -101,7 +108,11 @@ class ControllerRuntime:
             if self._supervisor is not None:
                 datapath_status = self._supervisor.start()
 
-            self._observed_state = self._observed_from_datapath(datapath_status)
+            self._observed_state = self._observed_from_datapath(
+                datapath_status,
+                topology_applied=self._observed_state.topology_applied,
+                effective_dpdk_config=self._observed_state.effective_dpdk_config,
+            )
             self._started = True
             self._recompute_controller_health(datapath_status)
 
@@ -115,10 +126,16 @@ class ControllerRuntime:
             self._controller_state = "stopping"
             self._controller_message = "stopping controller runtime"
 
-            if self._supervisor is not None:
+            if self._topology_manager.has_applied_topology:
+                self._topology_manager.destroy()
+            elif self._supervisor is not None:
                 self._supervisor.stop()
 
-            self._observed_state = self._observed_from_datapath(self._unmanaged_datapath_status())
+            self._observed_state = self._observed_from_datapath(
+                self._unmanaged_datapath_status(),
+                topology_applied=False,
+                effective_dpdk_config=None,
+            )
             self._desired_state = DesiredState(
                 desired_controller_state="stopped",
                 desired_datapath_running=False,
@@ -127,14 +144,80 @@ class ControllerRuntime:
             self._controller_message = "controller stopped"
             self._started = False
 
+    def apply_topology(self, config_path: str) -> TopologyOperationResult:
+        """Apply a validated topology through the topology manager."""
+
+        if not config_path.strip():
+            raise ValueError("config_path must be a non-empty string")
+        with self._lock:
+            self._controller_state = "reconciling"
+            self._controller_message = f"applying topology from {config_path}"
+
+        try:
+            result = self._topology_manager.apply(config_path)
+        except Exception:
+            with self._lock:
+                self._controller_state = "degraded"
+                self._controller_message = f"failed to apply topology from {config_path}"
+            raise
+
+        with self._lock:
+            self._desired_state = DesiredState(
+                topology_config_path=result.config_path,
+                topology_name=result.topology_name,
+                requested_dpdk_config=result.requested_dpdk_config,
+                desired_controller_state="running",
+                desired_datapath_running=result.applied,
+            )
+            datapath_status = self._current_datapath_status_locked()
+            self._observed_state = self._observed_from_datapath(
+                datapath_status,
+                topology_applied=result.applied,
+                effective_dpdk_config=result.effective_dpdk_config,
+            )
+            self._recompute_controller_health(datapath_status)
+        return result
+
+    def destroy_topology(self) -> TopologyOperationResult:
+        """Destroy the currently applied topology if one exists."""
+
+        with self._lock:
+            self._controller_state = "reconciling"
+            self._controller_message = "destroying topology"
+
+        try:
+            result = self._topology_manager.destroy()
+        except Exception:
+            with self._lock:
+                self._controller_state = "degraded"
+                self._controller_message = "failed to destroy topology"
+            raise
+
+        with self._lock:
+            self._desired_state = DesiredState(
+                desired_controller_state="running" if self._started else "stopped",
+                desired_datapath_running=False,
+            )
+            datapath_status = self._current_datapath_status_locked()
+            self._observed_state = self._observed_from_datapath(
+                datapath_status,
+                topology_applied=False,
+                effective_dpdk_config=None,
+            )
+            self._recompute_controller_health(datapath_status)
+        return result
+
     def health_snapshot(self) -> ControllerHealthSnapshot:
         """Return the latest controller and datapath health view."""
 
         with self._lock:
-            datapath_status = self._unmanaged_datapath_status()
+            datapath_status = self._current_datapath_status_locked()
             if self._started and self._supervisor is not None:
-                datapath_status = self._supervisor.status()
-                self._observed_state = self._observed_from_datapath(datapath_status)
+                self._observed_state = self._observed_from_datapath(
+                    datapath_status,
+                    topology_applied=self._observed_state.topology_applied,
+                    effective_dpdk_config=self._observed_state.effective_dpdk_config,
+                )
                 self._recompute_controller_health(datapath_status)
 
             return ControllerHealthSnapshot(
@@ -177,14 +260,21 @@ class ControllerRuntime:
             f"datapath reported state {datapath_status.health.state}: {datapath_status.health.message}"
         )
 
-    def _observed_from_datapath(self, datapath_status: DatapathProcessStatus) -> ObservedState:
+    def _observed_from_datapath(
+        self,
+        datapath_status: DatapathProcessStatus,
+        *,
+        topology_applied: bool,
+        effective_dpdk_config: EffectiveDpdkRuntimeModel | None,
+    ) -> ObservedState:
         health = datapath_status.health
         return ObservedState(
             datapath_health=health.state if health is not None else None,
             applied_rules_version=health.applied_rule_version if health is not None else None,
             dpdkd_pid=datapath_status.pid,
+            effective_dpdk_config=effective_dpdk_config,
             active_captures=self._observed_state.active_captures,
-            topology_applied=self._observed_state.topology_applied,
+            topology_applied=topology_applied,
         )
 
     def _unmanaged_datapath_status(self) -> DatapathProcessStatus:
@@ -192,6 +282,52 @@ class ControllerRuntime:
             managed=self.config.supervise_datapath,
             socket_path=self.config.datapath_socket_path,
         )
+
+    def _current_datapath_status_locked(self) -> DatapathProcessStatus:
+        datapath_status = self._unmanaged_datapath_status()
+        if self._started and self._supervisor is not None:
+            datapath_status = self._supervisor.status()
+        return datapath_status
+
+    def _build_supervisor_config(
+        self,
+        *,
+        namespace: str | None = None,
+        extra_args: tuple[str, ...] = (),
+    ) -> SupervisorConfig:
+        launch_prefix: tuple[str, ...] = ()
+        if namespace is not None:
+            launch_prefix = ("ip", "netns", "exec", namespace)
+        return SupervisorConfig(
+            dpdkd_binary=self.config.datapath_binary,
+            socket_path=self.config.datapath_socket_path,
+            launch_prefix=launch_prefix,
+            extra_args=extra_args,
+            startup_timeout_seconds=self.config.datapath_startup_timeout_seconds,
+        )
+
+    def _start_topology_datapath(
+        self,
+        validated_topology: ValidatedTopologyConfig,
+    ) -> DatapathProcessStatus:
+        if not self.config.supervise_datapath:
+            raise PktlabError(
+                ErrorCode.STATE_CONFLICT,
+                "controller was started without datapath supervision, so topology apply cannot launch pktlab-dpdkd",
+            )
+
+        with self._lock:
+            if self._supervisor is not None:
+                self._supervisor.stop()
+            self._supervisor = DpdkdSupervisor(
+                self._build_supervisor_config(namespace=validated_topology.requested_dpdk_config.namespace)
+            )
+            return self._supervisor.start()
+
+    def _stop_topology_datapath(self) -> None:
+        with self._lock:
+            if self._supervisor is not None:
+                self._supervisor.stop()
 
 
 __all__ = ["ControllerConfig", "ControllerHealthSnapshot", "ControllerRuntime"]

@@ -32,6 +32,8 @@ MIN_MEMPOOL_SIZE = 2048
 MEMPOOL_HEADROOM_FACTOR = 4
 MBUF_MEMORY_ESTIMATE_BYTES = 4096
 FIXED_RUNTIME_OVERHEAD_MB = 64
+INGRESS_BRIDGE_KERNEL_INTERFACE = "veth-in-k"
+EGRESS_BRIDGE_KERNEL_INTERFACE = "veth-out-k"
 
 
 @dataclass(frozen=True, slots=True)
@@ -128,6 +130,11 @@ def validate_topology_config(config: TopologyConfigModel) -> ValidatedTopologyCo
     _collect_capture_point_issues(
         config,
         namespace_names=namespace_names,
+        interface_names_by_namespace=interface_names_by_namespace,
+        issues=issues,
+    )
+    _collect_bridge_side_interface_issues(
+        dpdk_namespace=dpdk_namespace,
         interface_names_by_namespace=interface_names_by_namespace,
         issues=issues,
     )
@@ -583,6 +590,27 @@ def _collect_capture_point_issues(
                         "through links or dpdk_ports"
                     ),
                 )
+                )
+
+
+def _collect_bridge_side_interface_issues(
+    *,
+    dpdk_namespace: str,
+    interface_names_by_namespace: Mapping[str, set[str]],
+    issues: list[ValidationIssue],
+) -> None:
+    bridge_side_interfaces = interface_names_by_namespace.get(dpdk_namespace, set())
+    for interface_name in (INGRESS_BRIDGE_KERNEL_INTERFACE, EGRESS_BRIDGE_KERNEL_INTERFACE):
+        if interface_name not in bridge_side_interfaces:
+            issues.append(
+                ValidationIssue(
+                    path="links",
+                    code="missing_bridge_side_interface",
+                    message=(
+                        f"dpdk namespace '{dpdk_namespace}' must define bridge-side interface "
+                        f"'{interface_name}' through the topology links"
+                    ),
+                )
             )
 
 
@@ -905,6 +933,8 @@ __all__ = [
     "DEFAULT_LCORES",
     "DEFAULT_RX_QUEUE_SIZE",
     "DEFAULT_TX_QUEUE_SIZE",
+    "EGRESS_BRIDGE_KERNEL_INTERFACE",
+    "INGRESS_BRIDGE_KERNEL_INTERFACE",
     "ValidatedRuleset",
     "ValidatedTopologyConfig",
     "ValidationIssue",
