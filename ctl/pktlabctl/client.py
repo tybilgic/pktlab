@@ -50,6 +50,20 @@ class HealthResponseModel(BaseModel):
     datapath: DatapathStatusModel
 
 
+class TopologyOperationResponseModel(BaseModel):
+    """Typed topology lifecycle response used by the CLI."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    operation: str = Field(min_length=1)
+    topology_name: str | None = None
+    config_path: str | None = None
+    applied: bool
+    datapath_namespace: str | None = None
+    datapath_running: bool
+    message: str = Field(min_length=1)
+
+
 class ControllerClientError(RuntimeError):
     """Raised when the CLI cannot fetch or parse controller responses."""
 
@@ -84,14 +98,53 @@ class ControllerClient:
                 f"controller health response did not match the expected schema: {exc}"
             ) from exc
 
-    def _request_json(self, method: str, path: str) -> dict[str, Any]:
+    def apply_topology(self, config_path: str) -> TopologyOperationResponseModel:
+        """Request topology apply through the controller API."""
+
+        if not config_path.strip():
+            raise ValueError("config_path must be a non-empty string")
+        response = self._request_json("POST", "/topology/apply", json_body={"config_path": config_path})
+        try:
+            return TopologyOperationResponseModel.model_validate(response)
+        except ValidationError as exc:
+            raise ControllerClientError(
+                f"controller topology apply response did not match the expected schema: {exc}"
+            ) from exc
+
+    def destroy_topology(self) -> TopologyOperationResponseModel:
+        """Request topology destroy through the controller API."""
+
+        response = self._request_json("POST", "/topology/destroy", json_body={})
+        try:
+            return TopologyOperationResponseModel.model_validate(response)
+        except ValidationError as exc:
+            raise ControllerClientError(
+                f"controller topology destroy response did not match the expected schema: {exc}"
+            ) from exc
+
+    def _request_json(
+        self,
+        method: str,
+        path: str,
+        *,
+        json_body: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         try:
             with self._client_factory(base_url=self.base_url, timeout=self.timeout_seconds) as client:
-                response = client.request(method, path)
+                response = client.request(method, path, json=json_body)
                 response.raise_for_status()
         except httpx.HTTPStatusError as exc:
+            detail = ""
+            try:
+                payload = exc.response.json()
+                if isinstance(payload, dict):
+                    raw_detail = payload.get("detail")
+                    if raw_detail is not None:
+                        detail = f": {raw_detail}"
+            except Exception:
+                detail = ""
             raise ControllerClientError(
-                f"controller returned HTTP {exc.response.status_code} for {path}"
+                f"controller returned HTTP {exc.response.status_code} for {path}{detail}"
             ) from exc
         except httpx.HTTPError as exc:
             raise ControllerClientError(f"controller request failed for {path}: {exc}") from exc
@@ -112,4 +165,5 @@ __all__ = [
     "ControllerStatusModel",
     "DatapathStatusModel",
     "HealthResponseModel",
+    "TopologyOperationResponseModel",
 ]

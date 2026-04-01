@@ -10,6 +10,7 @@ from pktlab_ctrld import __version__
 from pktlab_ctrld.app import ControllerRuntime
 
 from .routes_health import router as health_router
+from .routes_topology import router as topology_router
 
 
 def create_api_app(controller: ControllerRuntime) -> FastAPI:
@@ -30,6 +31,7 @@ def create_api_app(controller: ControllerRuntime) -> FastAPI:
     )
     app.state.controller = controller
     app.include_router(health_router)
+    app.include_router(topology_router)
     return app
 
 

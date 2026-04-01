@@ -89,4 +89,51 @@ class HealthResponseModel(BaseModel):
         )
 
 
-__all__ = ["ControllerHealthModel", "DatapathHealthModel", "HealthResponseModel"]
+class TopologyApplyRequestModel(BaseModel):
+    """Request body for topology apply."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    config_path: str = Field(min_length=1)
+
+
+class TopologyOperationResponseModel(BaseModel):
+    """Response body for topology apply/destroy operations."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    operation: Literal["apply", "destroy"]
+    topology_name: str | None = None
+    config_path: str | None = None
+    applied: bool
+    datapath_namespace: str | None = None
+    datapath_running: bool
+    message: str = Field(min_length=1)
+
+    @classmethod
+    def from_result(cls, result: object) -> "TopologyOperationResponseModel":
+        """Map a topology manager result into the REST response model."""
+
+        from pktlab_ctrld.topology.manager import TopologyOperationResult
+
+        if not isinstance(result, TopologyOperationResult):
+            raise TypeError("result must be a TopologyOperationResult")
+
+        return cls(
+            operation=result.operation,
+            topology_name=result.topology_name,
+            config_path=result.config_path,
+            applied=result.applied,
+            datapath_namespace=result.datapath_namespace,
+            datapath_running=result.datapath_running,
+            message=result.message,
+        )
+
+
+__all__ = [
+    "ControllerHealthModel",
+    "DatapathHealthModel",
+    "HealthResponseModel",
+    "TopologyApplyRequestModel",
+    "TopologyOperationResponseModel",
+]

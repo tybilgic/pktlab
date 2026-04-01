@@ -1,10 +1,10 @@
-"""Render controller status output for human and JSON modes."""
+"""Render controller status and topology output for human and JSON modes."""
 
 from __future__ import annotations
 
 import json
 
-from .client import HealthResponseModel
+from .client import HealthResponseModel, TopologyOperationResponseModel
 
 
 def render_status(payload: HealthResponseModel, *, json_output: bool) -> str:
@@ -51,4 +51,24 @@ def render_human_status(payload: HealthResponseModel) -> str:
     return "\n".join(lines)
 
 
-__all__ = ["render_human_status", "render_status"]
+def render_topology_result(payload: TopologyOperationResponseModel, *, json_output: bool) -> str:
+    """Render a topology lifecycle result for CLI output."""
+
+    if json_output:
+        return json.dumps(payload.model_dump(mode="json"), indent=2, sort_keys=True)
+
+    lines = [
+        f"topology {payload.operation}: {payload.message}",
+        f"  applied: {'yes' if payload.applied else 'no'}",
+        f"  datapath_running: {'yes' if payload.datapath_running else 'no'}",
+    ]
+    if payload.topology_name is not None:
+        lines.append(f"  topology: {payload.topology_name}")
+    if payload.config_path is not None:
+        lines.append(f"  config_path: {payload.config_path}")
+    if payload.datapath_namespace is not None:
+        lines.append(f"  datapath_namespace: {payload.datapath_namespace}")
+    return "\n".join(lines)
+
+
+__all__ = ["render_human_status", "render_status", "render_topology_result"]
