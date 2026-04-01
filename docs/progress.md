@@ -2,10 +2,10 @@
 
 ## Current Focus
 
-- Active milestone: `M1`
-- Active ticket: `PLN-006`
-- Overall state: `PLN-005 is complete; the first end-to-end controller/CLI control slice is running and verified`
-- Latest progress entry: `PRG-011`
+- Active milestone: `M3`
+- Active ticket: `PLN-007`
+- Overall state: `PLN-006 is complete; config parsing, validation, and conservative runtime defaults are in place`
+- Latest progress entry: `PRG-012`
 
 ## Ticket Status
 
@@ -16,8 +16,8 @@
 | PLN-003 | Datapath IPC Stub in C | done | 2026-03-31 | `550aa35` | Stub daemon, framing layer, Unix socket server, and smoke test are in place. |
 | PLN-004 | Python IPC Client and Controller State | done | 2026-03-31 | `cfcedac`, `a87eb45`, `20af4ba` | Full unit and integration verification completed under the repo virtualenv; next work is `PLN-005`. |
 | PLN-005 | Controller Bootstrap, Health API, and CLI Status | done | 2026-04-01 | `012be4d`, `fc08760` | Controller supervision, `/health`, `pktlabctl status`, and integration coverage are in place. |
-| PLN-006 | Config Parsing, Validation, and Effective Runtime Policy | not started | 2026-04-01 |  | next active ticket |
-| PLN-007 | Topology Primitives and TAP Reconciliation | not started | 2026-03-31 |  |  |
+| PLN-006 | Config Parsing, Validation, and Effective Runtime Policy | done | 2026-04-01 | `e26821b` | Topology/rules parsing, semantic validation, and conservative datapath runtime derivation are in place. |
+| PLN-007 | Topology Primitives and TAP Reconciliation | not started | 2026-04-01 |  | next active ticket |
 | PLN-008 | Datapath EAL, Ports, and Pass-Through Loop | not started | 2026-03-31 |  |  |
 | PLN-009 | Datapath Status, Stats, and User Surface | not started | 2026-03-31 |  |  |
 | PLN-010 | Rules Engine and Atomic Ruleset Replacement | not started | 2026-03-31 |  |  |
@@ -344,6 +344,46 @@ Entries are append-only and ordered so session history can be reconstructed with
 - Next step:
   - start `PLN-006` and add topology/rules config parsing plus the conservative effective runtime policy for datapath launch settings
 - Commit: `012be4d`, `fc08760`
+
+### PRG-012 | 2026-04-01
+
+- Ticket: PLN-006
+- Status change: not started -> done
+- Implemented:
+  - added controller-side YAML loaders for full topology documents and standalone rules documents
+  - added semantic validation for namespaces, links, routes, datapath ports, capture points, and ruleset action targets
+  - added conservative effective datapath runtime derivation for `lcores`, queue sizes, mempool sizing, and 2 MB hugepage reservations
+  - extended desired and observed state so requested and effective datapath runtime settings can be carried into later topology work
+  - added focused unit tests for parser behavior, validation issue aggregation, runtime derivation, and state exposure
+- Files touched:
+  - `ctrld/pktlab_ctrld/config/__init__.py`
+  - `ctrld/pktlab_ctrld/config/topology.py`
+  - `ctrld/pktlab_ctrld/config/rules.py`
+  - `ctrld/pktlab_ctrld/config/validation.py`
+  - `ctrld/pktlab_ctrld/error.py`
+  - `ctrld/pktlab_ctrld/state/desired.py`
+  - `ctrld/pktlab_ctrld/state/observed.py`
+  - `ctrld/pktlab_ctrld/types.py`
+  - `ctrld/tests/unit/test_config_topology.py`
+  - `ctrld/tests/unit/test_config_rules.py`
+  - `ctrld/tests/unit/test_state_reconcile.py`
+  - `README.md`
+  - `docs/tickets/PLN-006-config-parsing-validation-and-effective-runtime-policy.md`
+  - `docs/progress.md`
+- Verification:
+  - ran `.venv/bin/python -m compileall ctrld/pktlab_ctrld ctrld/tests`
+  - ran `.venv/bin/python -m unittest discover -s ctrld/tests/unit -t ctrld -v`
+  - ran `.venv/bin/python -m unittest discover -s ctrld/tests -t ctrld -v`
+  - ran `.venv/bin/python -m unittest discover -s ctl/tests -t ctl -v`
+  - ran `git diff --check`
+- Remaining:
+  - no remaining work within `PLN-006`
+- Risks or blockers:
+  - lcore parsing is intentionally limited to simple list and range syntax for the MVP; full DPDK lcore grammar is deferred until there is a concrete need
+  - config validation is currently a controller-internal API only; user-facing topology apply/replace paths arrive in `PLN-007` and later tickets
+- Next step:
+  - start `PLN-007` and implement namespace, link, route, bridge, and TAP reconciliation primitives on top of the validated desired state
+- Commit: `e26821b` `config: add topology and rules validation with conservative runtime defaults`
 
 ## Read Before Continuing
 

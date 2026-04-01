@@ -2,7 +2,7 @@
 
 ## Status
 
-`not started`
+`done`
 
 ## Goal
 
@@ -70,3 +70,21 @@ The controller needs authoritative desired state, and the project has explicit l
 ## Handoff Note
 
 This ticket should make the later topology manager mostly procedural. By the time `PLN-007` starts, desired state should already be trustworthy.
+
+## Completion Notes
+
+- implemented topology and standalone rules YAML loaders in:
+  - `ctrld/pktlab_ctrld/config/topology.py`
+  - `ctrld/pktlab_ctrld/config/rules.py`
+- implemented semantic validation and effective runtime derivation in `ctrld/pktlab_ctrld/config/validation.py`
+- extended controller state models so requested and effective datapath runtime settings can be carried forward into later topology work
+- added unit coverage for valid and invalid parsing, semantic issue aggregation, runtime derivation, and controller state exposure
+- verified with:
+  - `.venv/bin/python -m compileall ctrld/pktlab_ctrld ctrld/tests`
+  - `.venv/bin/python -m unittest discover -s ctrld/tests/unit -t ctrld -v`
+  - `.venv/bin/python -m unittest discover -s ctrld/tests -t ctrld -v`
+  - `.venv/bin/python -m unittest discover -s ctl/tests -t ctl -v`
+  - `git diff --check`
+- related commits:
+  - `e26821b` `config: add topology and rules validation with conservative runtime defaults`
+- next ticket: `PLN-007`

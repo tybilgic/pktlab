@@ -17,6 +17,8 @@ Implemented today:
 - `pktlab-ctrld` runtime with datapath supervision, FastAPI application bootstrap, and
   `GET /health`
 - `pktlabctl status` with human-readable and `--json` output modes
+- topology YAML parsing, standalone rules YAML parsing, semantic validation, and
+  conservative effective datapath runtime defaults for small machines
 - controller- and CLI-side integration coverage for the first end-to-end control slice
 
 Not implemented yet:
@@ -24,7 +26,7 @@ Not implemented yet:
 - topology application and teardown
 - DPDK EAL, TAP PMD ports, forwarding loop, and rules engine
 
-The current implementation baseline covers `PLN-001` through `PLN-005`. Progress history and the
+The current implementation baseline covers `PLN-001` through `PLN-006`. Progress history and the
 active ticket live in [docs/progress.md](docs/progress.md).
 
 ## README Policy
@@ -137,6 +139,8 @@ Controller test note:
 
 - the full controller suite is verified with the editable packages installed in `.venv`
 - the `dpdk_client` integration test exercises the typed IPC client against the C stub daemon
+- the config unit tests exercise topology/rules parsing, semantic validation, and effective
+  datapath runtime derivation
 
 Optional contract sanity checks:
 
@@ -205,6 +209,21 @@ As a developer:
   third-party libraries such as `pydantic`
 - rebuild `build/dpdkd/pktlab-dpdkd` before running controller or CLI integration tests if the C
   stub changed
+- use the controller config helpers for direct topology/rules work until a user-facing apply path
+  exists:
+
+```python
+from pktlab_ctrld.config import (
+    load_rules_config,
+    load_topology_config,
+    validate_ruleset,
+    validate_topology_config,
+)
+```
+
+- the current conservative datapath defaults are `lcores="1"`, `burst_size=32`,
+  `rx_queue_size=256`, `tx_queue_size=256`, `mempool_size` derived from port and queue count with
+  a minimum of `2048`, and `hugepages_mb` rounded to 2 MB pages with a controller floor of `256`
 
 ## How To Modify The Project
 
@@ -218,4 +237,4 @@ As a developer:
 
 ## Current Next Step
 
-Start `PLN-006`: config parsing, validation, and effective runtime policy.
+Start `PLN-007`: topology primitives and TAP reconciliation.
