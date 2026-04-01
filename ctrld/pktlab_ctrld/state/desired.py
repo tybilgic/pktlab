@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from pktlab_ctrld.types import DpdkProcessConfigModel
+
 ControllerStateValue = Literal[
     "stopped",
     "starting",
@@ -28,6 +30,7 @@ class DesiredState:
     topology_config_path: str | None = None
     topology_name: str | None = None
     desired_rules_version: int | None = None
+    requested_dpdk_config: DpdkProcessConfigModel | None = None
     desired_controller_state: ControllerStateValue = "stopped"
     desired_datapath_running: bool = False
 
@@ -36,6 +39,11 @@ class DesiredState:
         _validate_optional_text("topology_name", self.topology_name)
         if self.desired_rules_version is not None and self.desired_rules_version < 0:
             raise ValueError("desired_rules_version must be non-negative")
+        if self.requested_dpdk_config is not None and not isinstance(
+            self.requested_dpdk_config,
+            DpdkProcessConfigModel,
+        ):
+            raise TypeError("requested_dpdk_config must be a DpdkProcessConfigModel")
 
     @property
     def topology_requested(self) -> bool:

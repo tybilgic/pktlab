@@ -154,6 +154,22 @@ class DpdkProcessConfigModel(BaseModel):
     mempool_size: int | None = Field(default=None, ge=1)
 
 
+class EffectiveDpdkRuntimeModel(BaseModel):
+    """Resolved datapath runtime configuration after controller defaults are applied."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    lcores: str = Field(min_length=1)
+    lcore_count: int = Field(ge=1)
+    hugepage_size_mb: Literal[2] = 2
+    hugepages_mb: int = Field(ge=2, multiple_of=2)
+    burst_size: int = Field(ge=1)
+    rx_queue_size: int = Field(ge=1)
+    tx_queue_size: int = Field(ge=1)
+    mempool_size: int = Field(ge=1)
+    port_count: int = Field(ge=1)
+
+
 class ControllerProcessConfigModel(BaseModel):
     """Controller process listen configuration."""
 
@@ -192,6 +208,7 @@ __all__ = [
     "ControllerProcessConfigModel",
     "ControllerState",
     "DatapathState",
+    "EffectiveDpdkRuntimeModel",
     "DpdkPortModel",
     "DpdkProcessConfigModel",
     "LabModel",

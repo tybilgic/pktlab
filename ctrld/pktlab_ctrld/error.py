@@ -10,6 +10,7 @@ class ErrorCode(StrEnum):
     """Project-level typed error codes."""
 
     DATAPATH_TRANSPORT_ERROR = "DATAPATH_TRANSPORT_ERROR"
+    CONFIG_PARSE_ERROR = "CONFIG_PARSE_ERROR"
     INVALID_REQUEST = "INVALID_REQUEST"
     INVALID_PAYLOAD = "INVALID_PAYLOAD"
     UNKNOWN_COMMAND = "UNKNOWN_COMMAND"
@@ -53,9 +54,31 @@ class PktlabError(Exception):
 class ValidationError(PktlabError):
     """Typed validation failure."""
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: ErrorCode = ErrorCode.TOPOLOGY_VALIDATION_ERROR,
+        issues: list[dict[str, Any]] | None = None,
+        context: dict[str, Any] | None = None,
+    ) -> None:
+        merged_context = dict(context or {})
+        if issues:
+            merged_context["issues"] = issues
+        super().__init__(
+            code,
+            message,
+            context=merged_context or None,
+        )
+        self.issues = tuple(merged_context.get("issues", ()))
+
+
+class ConfigParseError(PktlabError):
+    """Typed configuration parse failure."""
+
     def __init__(self, message: str, *, context: dict[str, Any] | None = None) -> None:
         super().__init__(
-            ErrorCode.TOPOLOGY_VALIDATION_ERROR,
+            ErrorCode.CONFIG_PARSE_ERROR,
             message,
             context=context,
         )
@@ -98,6 +121,7 @@ __all__ = [
     "DatapathProtocolError",
     "DatapathTransportError",
     "ErrorCode",
+    "ConfigParseError",
     "PktlabError",
     "ProcessExecutionError",
     "ValidationError",

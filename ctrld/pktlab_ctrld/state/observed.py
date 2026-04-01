@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Literal, Mapping
 
+from pktlab_ctrld.types import EffectiveDpdkRuntimeModel
+
 DatapathStateValue = Literal[
     "starting",
     "running",
@@ -49,12 +51,18 @@ class ObservedState:
     datapath_health: DatapathStateValue | None = None
     applied_rules_version: int | None = None
     dpdkd_pid: int | None = None
+    effective_dpdk_config: EffectiveDpdkRuntimeModel | None = None
     active_captures: Mapping[str, CaptureObservation] = field(default_factory=dict)
     topology_applied: bool = False
 
     def __post_init__(self) -> None:
         _validate_optional_non_negative("applied_rules_version", self.applied_rules_version)
         _validate_optional_positive("dpdkd_pid", self.dpdkd_pid)
+        if self.effective_dpdk_config is not None and not isinstance(
+            self.effective_dpdk_config,
+            EffectiveDpdkRuntimeModel,
+        ):
+            raise TypeError("effective_dpdk_config must be an EffectiveDpdkRuntimeModel")
         object.__setattr__(
             self,
             "active_captures",

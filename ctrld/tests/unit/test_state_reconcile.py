@@ -11,6 +11,7 @@ from pktlab_ctrld.state import (
     ReconcileActionType,
     build_reconcile_plan,
 )
+from pktlab_ctrld.types import DpdkProcessConfigModel, EffectiveDpdkRuntimeModel
 
 
 class StateReconcileTests(unittest.TestCase):
@@ -71,6 +72,28 @@ class StateReconcileTests(unittest.TestCase):
         self.assertEqual(observed.active_captures["src"], capture)
         with self.assertRaises(TypeError):
             observed.active_captures["sink"] = capture  # type: ignore[index]
+
+    def test_state_models_can_carry_requested_and_effective_runtime_config(self) -> None:
+        requested = DpdkProcessConfigModel(namespace="dpdk-host", lcores="1")
+        effective = EffectiveDpdkRuntimeModel(
+            lcores="1",
+            lcore_count=1,
+            hugepages_mb=256,
+            burst_size=32,
+            rx_queue_size=256,
+            tx_queue_size=256,
+            mempool_size=4096,
+            port_count=2,
+        )
+
+        desired = DesiredState(
+            topology_name="linear-basic",
+            requested_dpdk_config=requested,
+        )
+        observed = ObservedState(effective_dpdk_config=effective)
+
+        self.assertEqual(desired.requested_dpdk_config, requested)
+        self.assertEqual(observed.effective_dpdk_config, effective)
 
 
 if __name__ == "__main__":
