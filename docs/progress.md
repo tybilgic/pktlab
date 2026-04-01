@@ -472,7 +472,7 @@ Entries are append-only and ordered so session history can be reconstructed with
   - resume `PLN-008` and implement the real datapath EAL init, TAP PMD ports, and pass-through forwarding loop
 - Commit:
   - `1458a90` `ctrld: fix destroy-state health and standalone rules paths`
-  - documentation sync recorded in the current follow-up commit
+  - `9d070f0` `docs: sync README and history for PLN-006 and PLN-007 fixes`
 
 ## Read Before Continuing
 
