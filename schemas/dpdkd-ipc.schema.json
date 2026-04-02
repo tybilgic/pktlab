@@ -222,6 +222,7 @@
     "AckPayload": {
       "type": "object",
       "additionalProperties": false,
+      "required": ["message"],
       "properties": {
         "message": {
           "type": "string",
@@ -232,7 +233,7 @@
     "VersionPayload": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["service", "version"],
+      "required": ["service", "version", "dpdk_version"],
       "properties": {
         "service": {
           "type": "string",

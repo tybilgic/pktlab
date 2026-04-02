@@ -67,6 +67,7 @@ class ControllerRuntime:
         self._observed_state = ObservedState()
         self._controller_state: ControllerStateValue = "stopped"
         self._controller_message = "controller is not started"
+        self._controller_override_message: str | None = None
         self._started = False
         self._supervisor = supervisor
         self._netns_runner = netns_runner or NetnsRunner()
@@ -97,6 +98,7 @@ class ControllerRuntime:
             if self._started:
                 return
 
+            self._clear_controller_override()
             self._controller_state = "starting"
             self._controller_message = "starting controller runtime"
             self._desired_state = DesiredState(
@@ -123,6 +125,7 @@ class ControllerRuntime:
             if not self._started:
                 return
 
+            self._clear_controller_override()
             self._controller_state = "stopping"
             self._controller_message = "stopping controller runtime"
 
@@ -150,6 +153,7 @@ class ControllerRuntime:
         if not config_path.strip():
             raise ValueError("config_path must be a non-empty string")
         with self._lock:
+            self._clear_controller_override()
             self._controller_state = "reconciling"
             self._controller_message = f"applying topology from {config_path}"
 
@@ -157,11 +161,26 @@ class ControllerRuntime:
             result = self._topology_manager.apply(config_path)
         except Exception:
             with self._lock:
-                self._controller_state = "degraded"
-                self._controller_message = f"failed to apply topology from {config_path}"
+                datapath_status = self._current_datapath_status_locked()
+                if not self._topology_manager.has_applied_topology:
+                    self._desired_state = self._desired_state_without_topology()
+                    self._observed_state = self._observed_from_datapath(
+                        datapath_status,
+                        topology_applied=False,
+                        effective_dpdk_config=None,
+                    )
+                else:
+                    self._observed_state = self._observed_from_datapath(
+                        datapath_status,
+                        topology_applied=self._observed_state.topology_applied,
+                        effective_dpdk_config=self._observed_state.effective_dpdk_config,
+                    )
+                self._controller_override_message = f"failed to apply topology from {config_path}"
+                self._recompute_controller_health(datapath_status)
             raise
 
         with self._lock:
+            self._clear_controller_override()
             self._desired_state = DesiredState(
                 topology_config_path=result.config_path,
                 topology_name=result.topology_name,
@@ -182,6 +201,7 @@ class ControllerRuntime:
         """Destroy the currently applied topology if one exists."""
 
         with self._lock:
+            self._clear_controller_override()
             self._controller_state = "reconciling"
             self._controller_message = "destroying topology"
 
@@ -189,15 +209,20 @@ class ControllerRuntime:
             result = self._topology_manager.destroy()
         except Exception:
             with self._lock:
-                self._controller_state = "degraded"
-                self._controller_message = "failed to destroy topology"
+                datapath_status = self._current_datapath_status_locked()
+                self._observed_state = self._observed_from_datapath(
+                    datapath_status,
+                    topology_applied=self._observed_state.topology_applied,
+                    effective_dpdk_config=self._observed_state.effective_dpdk_config,
+                )
+                self._controller_override_message = "failed to destroy topology"
+                self._recompute_controller_health(datapath_status)
             raise
 
+        self._stop_topology_datapath()
         with self._lock:
-            self._desired_state = DesiredState(
-                desired_controller_state="running" if self._started else "stopped",
-                desired_datapath_running=False,
-            )
+            self._clear_controller_override()
+            self._desired_state = self._desired_state_without_topology()
             datapath_status = self._current_datapath_status_locked()
             self._observed_state = self._observed_from_datapath(
                 datapath_status,
@@ -231,6 +256,11 @@ class ControllerRuntime:
             )
 
     def _recompute_controller_health(self, datapath_status: DatapathProcessStatus) -> None:
+        if self._controller_override_message is not None:
+            self._controller_state = "degraded"
+            self._controller_message = self._controller_override_message
+            return
+
         if not self._started and self._controller_state == "stopped":
             self._controller_message = "controller is not started"
             return
@@ -297,6 +327,15 @@ class ControllerRuntime:
         if self._started and self._supervisor is not None:
             datapath_status = self._supervisor.status()
         return datapath_status
+
+    def _desired_state_without_topology(self) -> DesiredState:
+        return DesiredState(
+            desired_controller_state="running" if self._started else "stopped",
+            desired_datapath_running=False,
+        )
+
+    def _clear_controller_override(self) -> None:
+        self._controller_override_message = None
 
     def _build_supervisor_config(
         self,

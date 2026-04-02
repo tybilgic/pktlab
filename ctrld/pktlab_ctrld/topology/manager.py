@@ -81,15 +81,6 @@ class TopologyManager:
             validated = self._validate_topology(loaded)
 
             current = self._current
-            if current is not None and current.config_path == config_path:
-                return self._result(
-                    operation="apply",
-                    validated=current.validated,
-                    config_path=config_path,
-                    applied=True,
-                    datapath_running=True,
-                    message="topology is already applied",
-                )
             if current is not None:
                 self._destroy_locked(current.validated)
                 self._current = None
@@ -108,17 +99,22 @@ class TopologyManager:
                 )
                 bring_link_endpoints_up(validated, netns=self._netns)
             except Exception as exc:
-                self._cleanup_failed_apply(validated)
+                cleanup_error = self._cleanup_failed_apply(validated)
                 if isinstance(exc, PktlabError):
-                    raise
+                    if cleanup_error is None:
+                        raise
+                    raise self._merge_cleanup_error(exc, cleanup_error) from exc
+                context = {
+                    "config_path": config_path,
+                    "topology_name": validated.topology.lab.name,
+                    "detail": str(exc),
+                }
+                if cleanup_error is not None:
+                    context["cleanup_error"] = cleanup_error.to_dict()
                 raise PktlabError(
                     ErrorCode.TOPOLOGY_APPLY_ERROR,
                     "failed to apply topology",
-                    context={
-                        "config_path": config_path,
-                        "topology_name": validated.topology.lab.name,
-                        "detail": str(exc),
-                    },
+                    context=context,
                 ) from exc
 
             self._current = _AppliedTopology(config_path=config_path, validated=validated)
@@ -187,11 +183,21 @@ class TopologyManager:
                 },
             )
 
-    def _cleanup_failed_apply(self, validated: ValidatedTopologyConfig) -> None:
+    def _cleanup_failed_apply(self, validated: ValidatedTopologyConfig) -> PktlabError | None:
         try:
             self._destroy_locked(validated)
-        except PktlabError:
-            pass
+        except PktlabError as exc:
+            return exc
+        return None
+
+    def _merge_cleanup_error(self, error: PktlabError, cleanup_error: PktlabError) -> PktlabError:
+        context = dict(error.context)
+        context["cleanup_error"] = cleanup_error.to_dict()
+        return PktlabError(
+            error.code,
+            error.message,
+            context=context or None,
+        )
 
     def _start_datapath_locked(self, validated: ValidatedTopologyConfig) -> DatapathProcessStatus:
         if self._start_datapath is None:

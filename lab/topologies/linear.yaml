@@ -1,1 +1,43 @@
-# Placeholder topology created by PLN-001.
+lab:
+  name: linear-basic
+processes:
+  dpdkd:
+    namespace: dpdk-host
+namespaces:
+  - name: tg-src
+  - name: dpdk-host
+  - name: tg-sink
+links:
+  - name: src-to-host
+    a: tg-src:eth0
+    b: dpdk-host:veth-in-k
+    ip_a: 10.0.0.1/24
+    ip_b: 10.0.0.254/24
+  - name: host-to-sink
+    a: dpdk-host:veth-out-k
+    b: tg-sink:eth0
+    ip_a: 10.0.1.254/24
+    ip_b: 10.0.1.1/24
+dpdk_ports:
+  - name: dtap0
+    namespace: dpdk-host
+    role: ingress
+  - name: dtap1
+    namespace: dpdk-host
+    role: egress
+routes:
+  - namespace: tg-src
+    dst: 10.0.1.0/24
+    via: 10.0.0.254
+  - namespace: tg-sink
+    dst: 10.0.0.0/24
+    via: 10.0.1.254
+rules:
+  version: 1
+  default_action:
+    type: drop
+  entries: []
+capture_points:
+  - name: src-link
+    namespace: tg-src
+    interface: eth0

@@ -4,8 +4,8 @@
 
 - Active milestone: `M4`
 - Active ticket: `PLN-008`
-- Overall state: `PLN-006` and `PLN-007` follow-up fixes are merged; implementation can continue with `PLN-008`
-- Latest progress entry: `PRG-014`
+- Overall state: core controller/topology hardening fixes landed; the remaining pre-`PLN-008` gaps are live privileged topology smoke coverage plus the last placeholder docs/contracts
+- Latest progress entry: `PRG-016`
 
 ## Ticket Status
 
@@ -18,7 +18,7 @@
 | PLN-005 | Controller Bootstrap, Health API, and CLI Status | done | 2026-04-01 | `012be4d`, `fc08760` | Controller supervision, `/health`, `pktlabctl status`, and integration coverage are in place. |
 | PLN-006 | Config Parsing, Validation, and Effective Runtime Policy | done | 2026-04-01 | `e26821b`, `1458a90` | Topology/rules parsing and runtime derivation are in place; standalone rules now report root-relative validation paths while embedded topology rules keep `rules.*` paths. |
 | PLN-007 | Topology Primitives and TAP Reconciliation | done | 2026-04-01 | `d83aba1`, `aa59a77`, `1458a90` | Controller-owned topology lifecycle and topology API/CLI commands are in place; destroy now returns the controller to a healthy no-topology steady state. |
-| PLN-008 | Datapath EAL, Ports, and Pass-Through Loop | not started | 2026-04-01 |  | next active ticket |
+| PLN-008 | Datapath EAL, Ports, and Pass-Through Loop | not started | 2026-04-02 |  | deferred until the remaining `PRG-016` hardening follow-ups land |
 | PLN-009 | Datapath Status, Stats, and User Surface | not started | 2026-03-31 |  |  |
 | PLN-010 | Rules Engine and Atomic Ruleset Replacement | not started | 2026-03-31 |  |  |
 | PLN-011 | Capture, Scenarios, and Metrics | not started | 2026-03-31 |  |  |
@@ -473,6 +473,83 @@ Entries are append-only and ordered so session history can be reconstructed with
 - Commit:
   - `1458a90` `ctrld: fix destroy-state health and standalone rules paths`
   - `9d070f0` `docs: sync README and history for PLN-006 and PLN-007 fixes`
+
+### PRG-015 | 2026-04-02
+
+- Ticket: `PLN-006`, `PLN-007`, pre-`PLN-008` hardening review
+- Status change: `PLN-008` ready to start -> hardening fixes required before `PLN-008`
+- Implemented:
+  - reviewed the implemented controller, CLI, datapath stub, schemas, and docs against the current roadmap and progress log
+  - reran the current build and test suites for `dpdkd`, `ctrld`, and `ctl`
+  - reproduced the remaining controller state-management and topology-manager edge cases with targeted runtime probes
+  - recorded the verification results and the recommended hardening order in this progress log
+- Files touched:
+  - `docs/progress.md`
+- Verification:
+  - ran `meson compile -C build/dpdkd`
+  - ran `python3 dpdkd/tests/integration/test_ipc_smoke.py build/dpdkd/pktlab-dpdkd`
+  - ran `meson test -C build/dpdkd --print-errorlogs`
+  - ran `.venv/bin/python -m compileall ctrld/pktlab_ctrld ctrld/tests ctl/pktlabctl ctl/tests traffic`
+  - ran `.venv/bin/python -m unittest discover -s ctrld/tests -t ctrld -v`
+  - ran `.venv/bin/python -m unittest discover -s ctl/tests -t ctl -v`
+  - ran targeted `.venv/bin/python -c` reproductions to confirm stale state after failed apply, same-path no-op reapply, and destroy-without-topology behavior
+- Remaining:
+  - `ControllerRuntime.apply_topology()` leaves stale `desired_state` and `observed_state` after failures, so `/health` can report misleading topology state and overwrite the original error
+  - `ControllerRuntime.destroy_topology()` is still not idempotent when no topology is applied but the datapath remains running
+  - `TopologyManager.apply()` short-circuits on config-path equality, which blocks same-path reapply and reports a misleading `datapath_running=True`
+  - failed apply rollback currently swallows cleanup errors, which can hide partially torn down topology state
+  - the IPC, rules, README/sample topology, and OpenAPI docs still drift from the actual implementation in a few places
+  - topology coverage still relies on fake netns and HTTP stubs rather than live privileged apply/destroy verification
+- Risks or blockers:
+  - the current test suites pass, but they do not cover the failing controller invariants or real-system topology behavior that the review exposed
+  - live topology apply is still expected to fail against the datapath stub until `PLN-008` creates `dtap0` and `dtap1`
+- Recommendations:
+  - fix the apply/destroy state invariants first and add regression tests around those paths
+  - remove the same-path apply shortcut and surface rollback cleanup failures to the caller
+  - align the shared contracts, placeholder docs, and sample assets with what is actually implemented today
+  - add at least one real root-backed topology smoke path before treating topology orchestration as hardened
+  - resume `PLN-008` only after those control-plane fixes are merged
+- Next step:
+  - implement the controller/topology hardening fixes and regression coverage from this review before resuming datapath feature work
+- Commit:
+  - not committed yet
+
+### PRG-016 | 2026-04-02
+
+- Ticket: pre-`PLN-008` hardening follow-up
+- Status change: hardening fixes required before `PLN-008` -> core controller/topology hardening fixes landed; a few pre-`PLN-008` follow-ups still remain
+- Implemented:
+  - fixed `ControllerRuntime.apply_topology()` so failed apply clears stale no-longer-valid topology state when no topology remains active and preserves the original failure message across later `/health` reads
+  - fixed `ControllerRuntime.destroy_topology()` so destroy returns the controller to a healthy no-topology steady state even when the topology manager reports that nothing is currently applied but the supervised datapath is still running
+  - removed the config-path equality shortcut from `TopologyManager.apply()` so same-path apply performs a real reconcile instead of a misleading no-op
+  - surfaced rollback cleanup failures from failed apply attempts by attaching cleanup error details to the raised topology/apply error
+  - added regression coverage for the controller runtime and topology manager around the reproduced hardening bugs
+  - aligned the IPC schema required fields with the Python client models and replaced the placeholder `lab/topologies/linear.yaml` with a valid sample topology referenced by the README
+- Files touched:
+  - `ctrld/pktlab_ctrld/app.py`
+  - `ctrld/pktlab_ctrld/topology/manager.py`
+  - `ctrld/tests/unit/test_controller_runtime.py`
+  - `ctrld/tests/integration/test_topology_manager.py`
+  - `schemas/dpdkd-ipc.schema.json`
+  - `lab/topologies/linear.yaml`
+  - `README.md`
+  - `docs/progress.md`
+- Verification:
+  - ran `.venv/bin/python -m compileall ctrld/pktlab_ctrld ctrld/tests`
+  - ran `.venv/bin/python -m unittest discover -s ctrld/tests -t ctrld -v`
+  - ran `.venv/bin/python -c "from pktlab_ctrld.config.topology import load_topology_config; from pktlab_ctrld.config.validation import validate_topology_config; validate_topology_config(load_topology_config('lab/topologies/linear.yaml')); print('validated')"`
+  - ran `git diff --check`
+- Remaining:
+  - `schemas/rules.schema.yaml` is still a placeholder even though standalone rules parsing/validation exists
+  - `schemas/ctrld-api.openapi.yaml` is still a placeholder and does not yet document the implemented controller API surface
+  - topology orchestration coverage is still fake-netns and stub-based; there is still no root-backed apply/destroy smoke path
+  - live topology apply is still expected to fail against the current datapath stub until `PLN-008` creates `dtap0` and `dtap1`
+- Risks or blockers:
+  - the controller and topology-manager invariants are now covered by tests, but the remaining real-system topology smoke gap means privileged host behavior is still not proven end to end
+- Next step:
+  - decide whether to finish the remaining doc/schema cleanup and add a real privileged topology smoke path before resuming `PLN-008`
+- Commit:
+  - not committed yet
 
 ## Read Before Continuing
 

@@ -6,6 +6,7 @@ import unittest
 
 from pktlab_ctrld.config.topology import parse_topology_config_text
 from pktlab_ctrld.config.validation import validate_topology_config
+from pktlab_ctrld.error import ErrorCode, PktlabError
 from pktlab_ctrld.process.supervisor import DatapathProcessStatus
 from pktlab_ctrld.topology.manager import TopologyManager
 
@@ -179,6 +180,55 @@ class TopologyManagerIntegrationTests(unittest.TestCase):
         self.assertIn(("stop-datapath",), self.lifecycle)
         self.assertIn(("link-del", "dpdk-host", "br-out"), self.netns.commands)
         self.assertIn(("netns-del", "tg-src"), self.netns.commands)
+
+    def test_reapply_same_config_path_reconciles_again_instead_of_nooping(self) -> None:
+        first_apply = self.manager.apply("lab/topology.yaml")
+        second_apply = self.manager.apply("lab/topology.yaml")
+
+        self.assertTrue(first_apply.applied)
+        self.assertTrue(second_apply.applied)
+        self.assertEqual(second_apply.message, "topology applied")
+        self.assertEqual(
+            self.lifecycle,
+            [
+                ("start-datapath", "dpdk-host"),
+                ("stop-datapath",),
+                ("start-datapath", "dpdk-host"),
+            ],
+        )
+
+    def test_failed_apply_surfaces_cleanup_errors(self) -> None:
+        def start_datapath(_validated_topology):
+            raise PktlabError(
+                ErrorCode.PROCESS_ERROR,
+                "datapath launch failed",
+            )
+
+        def stop_datapath() -> None:
+            raise PktlabError(
+                ErrorCode.PROCESS_ERROR,
+                "datapath stop failed",
+            )
+
+        topology = parse_topology_config_text(VALID_TOPOLOGY_YAML, source="integration-topology")
+        manager = TopologyManager(
+            netns=FakeNetnsRunner(),
+            load_topology=lambda _: topology,
+            validate_topology=lambda _: self.validated,
+            start_datapath=start_datapath,
+            stop_datapath=stop_datapath,
+        )
+
+        with self.assertRaises(PktlabError) as ctx:
+            manager.apply("lab/topology.yaml")
+
+        self.assertEqual(ctx.exception.code, ErrorCode.PROCESS_ERROR)
+        self.assertEqual(ctx.exception.message, "datapath launch failed")
+        self.assertIn("cleanup_error", ctx.exception.context)
+        self.assertEqual(
+            ctx.exception.context["cleanup_error"]["code"],
+            ErrorCode.TOPOLOGY_DESTROY_ERROR.value,
+        )
 
 
 if __name__ == "__main__":

@@ -186,7 +186,7 @@ Query the controller through the CLI:
 ```sh
 .venv/bin/pktlabctl --controller-url http://127.0.0.1:8080 status
 .venv/bin/pktlabctl --controller-url http://127.0.0.1:8080 --json status
-.venv/bin/pktlabctl --controller-url http://127.0.0.1:8080 topology apply -f lab/topology.yaml
+.venv/bin/pktlabctl --controller-url http://127.0.0.1:8080 topology apply -f lab/topologies/linear.yaml
 .venv/bin/pktlabctl --controller-url http://127.0.0.1:8080 topology destroy
 ```
 
