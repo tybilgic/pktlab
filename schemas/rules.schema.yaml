@@ -1,2 +1,118 @@
-# Placeholder created by PLN-001.
-# Standalone rules schema lands with later rules-focused work.
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://pktlab.local/schemas/rules.schema.yaml
+title: pktlab standalone rules configuration
+description: >
+  Shared standalone rules configuration contract for pktlab controller and CLI input.
+  Structural shape is enforced here; semantic checks such as duplicate rule IDs, supported
+  port references, and protocol-specific validation remain controller-side validation work.
+type: object
+additionalProperties: false
+required:
+  - version
+  - default_action
+  - entries
+properties:
+  version:
+    type: integer
+    minimum: 0
+  default_action:
+    $ref: "#/$defs/RuleAction"
+  entries:
+    type: array
+    items:
+      $ref: "#/$defs/Rule"
+$defs:
+  NonEmptyString:
+    type: string
+    minLength: 1
+  IPv4WithPrefix:
+    type: string
+    pattern: "^(?:\\d{1,3}\\.){3}\\d{1,3}/\\d{1,2}$"
+  IPv4Address:
+    type: string
+    pattern: "^(?:\\d{1,3}\\.){3}\\d{1,3}$"
+  RuleProtocol:
+    type: string
+    enum:
+      - tcp
+      - udp
+      - icmp
+      - any
+  RuleActionType:
+    type: string
+    enum:
+      - forward
+      - drop
+      - count
+      - mirror
+  RuleMatch:
+    type: object
+    additionalProperties: false
+    properties:
+      proto:
+        $ref: "#/$defs/RuleProtocol"
+      src_ip:
+        $ref: "#/$defs/IPv4Address"
+      dst_ip:
+        $ref: "#/$defs/IPv4Address"
+      src_cidr:
+        $ref: "#/$defs/IPv4WithPrefix"
+      dst_cidr:
+        $ref: "#/$defs/IPv4WithPrefix"
+      src_port:
+        type: integer
+        minimum: 0
+        maximum: 65535
+      dst_port:
+        type: integer
+        minimum: 0
+        maximum: 65535
+  RuleAction:
+    type: object
+    additionalProperties: false
+    required:
+      - type
+    properties:
+      type:
+        $ref: "#/$defs/RuleActionType"
+      port:
+        $ref: "#/$defs/NonEmptyString"
+    allOf:
+      - if:
+          properties:
+            type:
+              enum:
+                - forward
+                - mirror
+        then:
+          required:
+            - port
+      - if:
+          properties:
+            type:
+              enum:
+                - drop
+                - count
+        then:
+          not:
+            required:
+              - port
+  Rule:
+    type: object
+    additionalProperties: false
+    required:
+      - id
+      - priority
+      - match
+      - action
+    properties:
+      id:
+        type: integer
+        minimum: 0
+      priority:
+        type: integer
+        minimum: 0
+      match:
+        $ref: "#/$defs/RuleMatch"
+      action:
+        $ref: "#/$defs/RuleAction"

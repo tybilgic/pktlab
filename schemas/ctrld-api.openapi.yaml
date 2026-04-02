@@ -1,2 +1,349 @@
-# Placeholder created by PLN-001.
-# Controller API contract lands with later controller API work.
+openapi: 3.1.0
+info:
+  title: pktlab controller API
+  version: 0.1.0
+  description: >
+    Checked-in contract for the currently implemented pktlab controller HTTP surface.
+    This file tracks the FastAPI application in `ctrld/pktlab_ctrld/api/` and documents
+    both the generated request/response models and the custom `PktlabError` response shape
+    used by the topology endpoints.
+tags:
+  - name: health
+    description: Controller and datapath runtime visibility.
+  - name: topology
+    description: Controller-owned topology apply and destroy operations.
+paths:
+  /health:
+    get:
+      tags:
+        - health
+      summary: Get controller and datapath health
+      operationId: getHealth
+      description: Return the controller health snapshot and the latest datapath status.
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /topology/apply:
+    post:
+      tags:
+        - topology
+      summary: Apply a topology
+      operationId: applyTopology
+      description: Apply a topology from a controller-visible config path.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TopologyApplyRequest"
+      responses:
+        "200":
+          description: Topology apply result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TopologyOperationResponse"
+        "409":
+          description: Controller state conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControllerErrorResponse"
+        "422":
+          description: Request validation or topology/config validation failure
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/FastapiValidationErrorResponse"
+                  - $ref: "#/components/schemas/ControllerErrorResponse"
+        "500":
+          description: Unexpected topology apply or controller failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControllerErrorResponse"
+  /topology/destroy:
+    post:
+      tags:
+        - topology
+      summary: Destroy the current topology
+      operationId: destroyTopology
+      description: Destroy the currently applied topology.
+      responses:
+        "200":
+          description: Topology destroy result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TopologyOperationResponse"
+        "409":
+          description: Controller state conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControllerErrorResponse"
+        "500":
+          description: Unexpected topology destroy or controller failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControllerErrorResponse"
+components:
+  schemas:
+    ControllerState:
+      type: string
+      enum:
+        - stopped
+        - starting
+        - running
+        - degraded
+        - reconciling
+        - stopping
+        - failed
+    DatapathState:
+      type: string
+      enum:
+        - starting
+        - running
+        - paused
+        - degraded
+        - stopping
+        - failed
+    ControllerHealth:
+      type: object
+      additionalProperties: false
+      required:
+        - service
+        - version
+        - state
+        - message
+      properties:
+        service:
+          type: string
+          const: pktlab-ctrld
+          default: pktlab-ctrld
+        version:
+          type: string
+          minLength: 1
+        state:
+          $ref: "#/components/schemas/ControllerState"
+        message:
+          type: string
+          minLength: 1
+    DatapathHealth:
+      type: object
+      additionalProperties: false
+      required:
+        - managed
+        - reachable
+        - socket_path
+        - ports_ready
+        - paused
+      properties:
+        managed:
+          type: boolean
+        reachable:
+          type: boolean
+        socket_path:
+          type: string
+          minLength: 1
+        pid:
+          type:
+            - integer
+            - "null"
+          minimum: 1
+        exit_code:
+          type:
+            - integer
+            - "null"
+        last_error:
+          type:
+            - string
+            - "null"
+        service:
+          type:
+            - string
+            - "null"
+          const: pktlab-dpdkd
+        version:
+          type:
+            - string
+            - "null"
+        dpdk_version:
+          type:
+            - string
+            - "null"
+        state:
+          oneOf:
+            - $ref: "#/components/schemas/DatapathState"
+            - type: "null"
+        message:
+          type:
+            - string
+            - "null"
+        applied_rule_version:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+        ports_ready:
+          type: boolean
+          default: false
+        paused:
+          type: boolean
+          default: false
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - controller
+        - datapath
+      properties:
+        controller:
+          $ref: "#/components/schemas/ControllerHealth"
+        datapath:
+          $ref: "#/components/schemas/DatapathHealth"
+    TopologyApplyRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - config_path
+      properties:
+        config_path:
+          type: string
+          minLength: 1
+    TopologyOperation:
+      type: string
+      enum:
+        - apply
+        - destroy
+    TopologyOperationResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - operation
+        - applied
+        - datapath_running
+        - message
+      properties:
+        operation:
+          $ref: "#/components/schemas/TopologyOperation"
+        topology_name:
+          type:
+            - string
+            - "null"
+        config_path:
+          type:
+            - string
+            - "null"
+        applied:
+          type: boolean
+        datapath_namespace:
+          type:
+            - string
+            - "null"
+        datapath_running:
+          type: boolean
+        message:
+          type: string
+          minLength: 1
+    ErrorCode:
+      type: string
+      enum:
+        - DATAPATH_TRANSPORT_ERROR
+        - CONFIG_PARSE_ERROR
+        - INVALID_REQUEST
+        - INVALID_PAYLOAD
+        - UNKNOWN_COMMAND
+        - RULE_VALIDATION_ERROR
+        - TOPOLOGY_VALIDATION_ERROR
+        - TOPOLOGY_APPLY_ERROR
+        - TOPOLOGY_DESTROY_ERROR
+        - PROCESS_ERROR
+        - PORT_INIT_ERROR
+        - STATE_CONFLICT
+        - TIMEOUT
+        - INTERNAL_ERROR
+    ValidationIssue:
+      type: object
+      additionalProperties: true
+      required:
+        - path
+        - code
+        - message
+      properties:
+        path:
+          type: string
+        code:
+          type: string
+        message:
+          type: string
+    ErrorContext:
+      type: object
+      description: >
+        Arbitrary structured context supplied by the controller. Validation-style errors
+        typically include an `issues` array shaped like `ValidationIssue`.
+      additionalProperties: true
+      properties:
+        issues:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValidationIssue"
+    ControllerError:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message
+      properties:
+        code:
+          $ref: "#/components/schemas/ErrorCode"
+        message:
+          type: string
+        context:
+          $ref: "#/components/schemas/ErrorContext"
+    ControllerErrorResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - detail
+      properties:
+        detail:
+          $ref: "#/components/schemas/ControllerError"
+    FastapiValidationError:
+      type: object
+      additionalProperties: true
+      required:
+        - loc
+        - msg
+        - type
+      properties:
+        loc:
+          type: array
+          items:
+            anyOf:
+              - type: string
+              - type: integer
+        msg:
+          type: string
+        type:
+          type: string
+        ctx:
+          type: object
+          additionalProperties: true
+        input: {}
+    FastapiValidationErrorResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - detail
+      properties:
+        detail:
+          type: array
+          items:
+            $ref: "#/components/schemas/FastapiValidationError"

@@ -4,8 +4,8 @@
 
 - Active milestone: `M4`
 - Active ticket: `PLN-008`
-- Overall state: core controller/topology hardening fixes landed; the remaining pre-`PLN-008` gaps are live privileged topology smoke coverage plus the last placeholder docs/contracts
-- Latest progress entry: `PRG-016`
+- Overall state: core controller/topology hardening fixes landed; the remaining pre-`PLN-008` gap is live privileged topology smoke coverage
+- Latest progress entry: `PRG-017`
 
 ## Ticket Status
 
@@ -18,7 +18,7 @@
 | PLN-005 | Controller Bootstrap, Health API, and CLI Status | done | 2026-04-01 | `012be4d`, `fc08760` | Controller supervision, `/health`, `pktlabctl status`, and integration coverage are in place. |
 | PLN-006 | Config Parsing, Validation, and Effective Runtime Policy | done | 2026-04-01 | `e26821b`, `1458a90` | Topology/rules parsing and runtime derivation are in place; standalone rules now report root-relative validation paths while embedded topology rules keep `rules.*` paths. |
 | PLN-007 | Topology Primitives and TAP Reconciliation | done | 2026-04-01 | `d83aba1`, `aa59a77`, `1458a90` | Controller-owned topology lifecycle and topology API/CLI commands are in place; destroy now returns the controller to a healthy no-topology steady state. |
-| PLN-008 | Datapath EAL, Ports, and Pass-Through Loop | not started | 2026-04-02 |  | deferred until the remaining `PRG-016` hardening follow-ups land |
+| PLN-008 | Datapath EAL, Ports, and Pass-Through Loop | not started | 2026-04-02 |  | deferred until the remaining privileged topology smoke hardening follow-up lands |
 | PLN-009 | Datapath Status, Stats, and User Surface | not started | 2026-03-31 |  |  |
 | PLN-010 | Rules Engine and Atomic Ruleset Replacement | not started | 2026-03-31 |  |  |
 | PLN-011 | Capture, Scenarios, and Metrics | not started | 2026-03-31 |  |  |
@@ -550,6 +550,32 @@ Entries are append-only and ordered so session history can be reconstructed with
   - decide whether to finish the remaining doc/schema cleanup and add a real privileged topology smoke path before resuming `PLN-008`
 - Commit:
   - `885e865` `ctrld: harden topology state and rollback handling`
+
+### PRG-017 | 2026-04-02
+
+- Ticket: pre-`PLN-008` hardening follow-up
+- Status change: pre-`PLN-008` follow-ups include placeholder docs/contracts plus privileged topology smoke coverage -> placeholder docs/contracts replaced; privileged topology smoke coverage remains
+- Implemented:
+  - replaced the placeholder standalone rules schema with the structural contract that matches `RulesetModel`, including rule match/action fields and action-specific `port` requirements
+  - replaced the placeholder controller OpenAPI file with the currently implemented HTTP surface for `GET /health`, `POST /topology/apply`, and `POST /topology/destroy`
+  - documented both FastAPI request-shape validation failures and the controller's custom `PktlabError` response envelope so the checked-in API contract matches real route behavior rather than the placeholder
+- Files touched:
+  - `schemas/rules.schema.yaml`
+  - `schemas/ctrld-api.openapi.yaml`
+  - `docs/progress.md`
+- Verification:
+  - ran `.venv/bin/python -c "import pathlib, yaml; yaml.safe_load(pathlib.Path('schemas/rules.schema.yaml').read_text()); yaml.safe_load(pathlib.Path('schemas/ctrld-api.openapi.yaml').read_text()); print('schema docs parse')"`
+  - ran `.venv/bin/python -c "from pktlab_ctrld.api.app import create_api_app; app = create_api_app(type('ControllerStub', (), {})()); paths = sorted(app.openapi()['paths']); assert paths == ['/health', '/topology/apply', '/topology/destroy']; print('openapi paths verified')"`
+  - ran `git diff --check`
+- Remaining:
+  - topology orchestration coverage is still fake-netns and stub-based; there is still no root-backed apply/destroy smoke path
+  - live topology apply is still expected to fail against the current datapath stub until `PLN-008` creates `dtap0` and `dtap1`
+- Risks or blockers:
+  - the checked-in contract docs now match the implemented rules/API surface, but privileged host behavior is still not proven end to end
+- Next step:
+  - add a real privileged topology apply/destroy smoke path, then resume `PLN-008`
+- Commit:
+  - not committed yet
 
 ## Read Before Continuing
 
