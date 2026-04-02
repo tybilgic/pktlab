@@ -512,7 +512,7 @@ Entries are append-only and ordered so session history can be reconstructed with
 - Next step:
   - implement the controller/topology hardening fixes and regression coverage from this review before resuming datapath feature work
 - Commit:
-  - not committed yet
+  - `885e865` `ctrld: harden topology state and rollback handling`
 
 ### PRG-016 | 2026-04-02
 
@@ -549,7 +549,7 @@ Entries are append-only and ordered so session history can be reconstructed with
 - Next step:
   - decide whether to finish the remaining doc/schema cleanup and add a real privileged topology smoke path before resuming `PLN-008`
 - Commit:
-  - not committed yet
+  - `885e865` `ctrld: harden topology state and rollback handling`
 
 ## Read Before Continuing
 
