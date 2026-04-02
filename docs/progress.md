@@ -575,7 +575,7 @@ Entries are append-only and ordered so session history can be reconstructed with
 - Next step:
   - add a real privileged topology apply/destroy smoke path, then resume `PLN-008`
 - Commit:
-  - not committed yet
+  - `dcc980d` `docs: replace placeholder rules and controller API contracts`
 
 ## Read Before Continuing
 
