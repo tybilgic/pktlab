@@ -18,7 +18,7 @@
 | PLN-005 | Controller Bootstrap, Health API, and CLI Status | done | 2026-04-01 | `012be4d`, `fc08760` | Controller supervision, `/health`, `pktlabctl status`, and integration coverage are in place. |
 | PLN-006 | Config Parsing, Validation, and Effective Runtime Policy | done | 2026-04-01 | `e26821b`, `1458a90` | Topology/rules parsing and runtime derivation are in place; standalone rules now report root-relative validation paths while embedded topology rules keep `rules.*` paths. |
 | PLN-007 | Topology Primitives and TAP Reconciliation | done | 2026-04-01 | `d83aba1`, `aa59a77`, `1458a90` | Controller-owned topology lifecycle and topology API/CLI commands are in place; destroy now returns the controller to a healthy no-topology steady state. |
-| PLN-008 | Datapath EAL, Ports, and Pass-Through Loop | in progress | 2026-04-14 |  | controller-to-daemon runtime argument wiring and `dpdkd` module scaffolding are in place; real DPDK startup and forwarding are still pending |
+| PLN-008 | Datapath EAL, Ports, and Pass-Through Loop | in progress | 2026-04-14 | `76cb42d` | controller-to-daemon runtime argument wiring and `dpdkd` module scaffolding are in place; real DPDK startup and forwarding are still pending |
 | PLN-009 | Datapath Status, Stats, and User Surface | not started | 2026-03-31 |  |  |
 | PLN-010 | Rules Engine and Atomic Ruleset Replacement | not started | 2026-03-31 |  |  |
 | PLN-011 | Capture, Scenarios, and Metrics | not started | 2026-03-31 |  |  |
@@ -703,7 +703,7 @@ Entries are append-only and ordered so session history can be reconstructed with
   - implement the actual DPDK EAL startup and TAP PMD device creation inside the new datapath
     module layout
 - Commit:
-  - `<pending>`
+  - `76cb42d` `dpdkd: add PLN-008 runtime plumbing and module scaffolding`
 
 ## Read Before Continuing
 
