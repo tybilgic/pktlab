@@ -628,7 +628,7 @@ Entries are append-only and ordered so session history can be reconstructed with
 - Next step:
   - rerun the privileged topology smoke path on a root-capable host and, if it passes, resume `PLN-008`
 - Commit:
-  - `<pending>`
+  - `e5d17ed` `topology: install static routes after links are up`
 
 ## Read Before Continuing
 
