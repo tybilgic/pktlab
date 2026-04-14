@@ -5,6 +5,7 @@
 #include <signal.h>
 #include <stddef.h>
 
+#include "datapath.h"
 #include "health.h"
 #include "ipc_server.h"
 #include "log.h"
@@ -15,12 +16,14 @@
 struct pktlab_daemon_config {
     const char *socket_path;
     enum pktlab_log_level log_level;
+    struct pktlab_datapath_config datapath;
 };
 
 struct pktlab_daemon {
     char socket_path[PATH_MAX];
     struct pktlab_health_tracker health;
     struct pktlab_stats_tracker stats;
+    struct pktlab_datapath datapath;
     struct pktlab_ipc_server ipc_server;
 };
 

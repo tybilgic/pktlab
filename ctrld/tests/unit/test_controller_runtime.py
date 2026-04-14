@@ -5,10 +5,64 @@ from __future__ import annotations
 from dataclasses import dataclass
 import unittest
 
-from pktlab_ctrld.app import ControllerConfig, ControllerRuntime
+from pktlab_ctrld.app import ControllerConfig, ControllerRuntime, build_dpdk_runtime_args
+from pktlab_ctrld.config.topology import parse_topology_config_text
+from pktlab_ctrld.config.validation import validate_topology_config
 from pktlab_ctrld.process.supervisor import DatapathProcessStatus
 from pktlab_ctrld.topology.manager import TopologyOperationResult
 from pktlab_ctrld.types import DpdkProcessConfigModel, EffectiveDpdkRuntimeModel
+
+VALID_TOPOLOGY_YAML = """
+lab:
+  name: linear-basic
+processes:
+  dpdkd:
+    namespace: dpdk-host
+    lcores: "4"
+    hugepages_mb: 512
+    burst_size: 64
+    rx_queue_size: 512
+    tx_queue_size: 1024
+    mempool_size: 16384
+namespaces:
+  - name: tg-src
+  - name: dpdk-host
+  - name: tg-sink
+links:
+  - name: src-to-host
+    a: tg-src:eth0
+    b: dpdk-host:veth-in-k
+    ip_a: 10.0.0.1/24
+    ip_b: 10.0.0.254/24
+  - name: host-to-sink
+    a: dpdk-host:veth-out-k
+    b: tg-sink:eth0
+    ip_a: 10.0.1.254/24
+    ip_b: 10.0.1.1/24
+dpdk_ports:
+  - name: dtap0
+    namespace: dpdk-host
+    role: ingress
+  - name: dtap1
+    namespace: dpdk-host
+    role: egress
+routes:
+  - namespace: tg-src
+    dst: 10.0.1.0/24
+    via: 10.0.0.254
+  - namespace: tg-sink
+    dst: 10.0.0.0/24
+    via: 10.0.1.254
+rules:
+  version: 3
+  default_action:
+    type: drop
+  entries: []
+capture_points:
+  - name: src-link
+    namespace: tg-src
+    interface: eth0
+"""
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,6 +187,31 @@ def running_datapath_status() -> DatapathProcessStatus:
 
 class ControllerRuntimeTests(unittest.TestCase):
     """Keep controller health transitions aligned with desired state."""
+
+    def test_build_dpdk_runtime_args_uses_effective_runtime_and_port_roles(self) -> None:
+        validated = validate_topology_config(parse_topology_config_text(VALID_TOPOLOGY_YAML))
+
+        self.assertEqual(
+            build_dpdk_runtime_args(validated),
+            (
+                "--lcores",
+                "4",
+                "--hugepages-mb",
+                "512",
+                "--burst-size",
+                "64",
+                "--rx-queue-size",
+                "512",
+                "--tx-queue-size",
+                "1024",
+                "--mempool-size",
+                "16384",
+                "--ingress-port-name",
+                "dtap0",
+                "--egress-port-name",
+                "dtap1",
+            ),
+        )
 
     def test_failed_apply_clears_stale_topology_state_and_preserves_failure_message(self) -> None:
         supervisor = FakeSupervisor(status=running_datapath_status())

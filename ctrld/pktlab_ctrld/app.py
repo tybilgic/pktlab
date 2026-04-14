@@ -368,7 +368,10 @@ class ControllerRuntime:
             if self._supervisor is not None:
                 self._supervisor.stop()
             self._supervisor = DpdkdSupervisor(
-                self._build_supervisor_config(namespace=validated_topology.requested_dpdk_config.namespace)
+                self._build_supervisor_config(
+                    namespace=validated_topology.requested_dpdk_config.namespace,
+                    extra_args=build_dpdk_runtime_args(validated_topology),
+                )
             )
             return self._supervisor.start()
 
@@ -378,4 +381,42 @@ class ControllerRuntime:
                 self._supervisor.stop()
 
 
-__all__ = ["ControllerConfig", "ControllerHealthSnapshot", "ControllerRuntime"]
+def build_dpdk_runtime_args(validated_topology: ValidatedTopologyConfig) -> tuple[str, ...]:
+    """Render datapath CLI arguments from the controller-validated runtime profile."""
+
+    effective = validated_topology.effective_dpdk_config
+    ingress_port_name = _port_name_for_role(validated_topology, "ingress")
+    egress_port_name = _port_name_for_role(validated_topology, "egress")
+    return (
+        "--lcores",
+        effective.lcores,
+        "--hugepages-mb",
+        str(effective.hugepages_mb),
+        "--burst-size",
+        str(effective.burst_size),
+        "--rx-queue-size",
+        str(effective.rx_queue_size),
+        "--tx-queue-size",
+        str(effective.tx_queue_size),
+        "--mempool-size",
+        str(effective.mempool_size),
+        "--ingress-port-name",
+        ingress_port_name,
+        "--egress-port-name",
+        egress_port_name,
+    )
+
+
+def _port_name_for_role(validated_topology: ValidatedTopologyConfig, role: str) -> str:
+    for port in validated_topology.topology.dpdk_ports:
+        if port.role == role:
+            return port.name
+    raise ValueError(f"expected a dpdk port with role {role}")
+
+
+__all__ = [
+    "ControllerConfig",
+    "ControllerHealthSnapshot",
+    "ControllerRuntime",
+    "build_dpdk_runtime_args",
+]

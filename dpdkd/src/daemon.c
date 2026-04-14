@@ -107,6 +107,16 @@ int pktlab_daemon_init(
     pktlab_health_set_paused(&daemon->health, false);
     pktlab_health_set_applied_rule_version(&daemon->health, 0U);
     pktlab_stats_init(&daemon->stats);
+    if (pktlab_datapath_init(&daemon->datapath, &config->datapath, error) != 0) {
+        pktlab_health_set_state(
+            &daemon->health,
+            PKTLAB_DP_STATE_FAILED,
+            error != NULL && error->message != NULL
+                ? error->message
+                : "failed to initialize datapath runtime configuration"
+        );
+        return -1;
+    }
 
     ipc_config.socket_path = daemon->socket_path;
     ipc_config.backlog = PKTLAB_IPC_SERVER_DEFAULT_BACKLOG;
@@ -126,12 +136,24 @@ int pktlab_daemon_init(
 int pktlab_daemon_run(struct pktlab_daemon *daemon, volatile sig_atomic_t *stop_requested)
 {
     int status;
+    struct pktlab_dpdkd_error error;
+    char running_message[PKTLAB_DPDKD_MESSAGE_LEN];
 
     PKTLAB_LOG_INFO("starting datapath daemon on socket %s", daemon->socket_path);
+    memset(&error, 0, sizeof(error));
+    if (pktlab_datapath_start(&daemon->datapath, &error) != 0) {
+        pktlab_health_set_state(
+            &daemon->health,
+            PKTLAB_DP_STATE_FAILED,
+            error.message != NULL ? error.message : "failed to start datapath runtime"
+        );
+        return -1;
+    }
+    pktlab_datapath_running_message(&daemon->datapath, running_message, sizeof(running_message));
     pktlab_health_set_state(
         &daemon->health,
         PKTLAB_DP_STATE_RUNNING,
-        "ipc server listening; datapath fast path not initialized"
+        running_message
     );
 
     status = pktlab_ipc_server_run(
@@ -151,5 +173,6 @@ int pktlab_daemon_run(struct pktlab_daemon *daemon, volatile sig_atomic_t *stop_
 
 void pktlab_daemon_cleanup(struct pktlab_daemon *daemon)
 {
+    pktlab_datapath_cleanup(&daemon->datapath);
     pktlab_ipc_server_close(&daemon->ipc_server);
 }

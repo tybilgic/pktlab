@@ -4,8 +4,8 @@
 
 - Active milestone: `M4`
 - Active ticket: `PLN-008`
-- Overall state: pre-`PLN-008` hardening is now verified on a root-capable host; `PLN-008` is ready to resume
-- Latest progress entry: `PRG-020`
+- Overall state: `PLN-008` is in progress with controller-to-datapath runtime plumbing and Meson source scaffolding in place; real DPDK EAL startup, TAP creation, and forwarding remain
+- Latest progress entry: `PRG-021`
 
 ## Ticket Status
 
@@ -18,7 +18,7 @@
 | PLN-005 | Controller Bootstrap, Health API, and CLI Status | done | 2026-04-01 | `012be4d`, `fc08760` | Controller supervision, `/health`, `pktlabctl status`, and integration coverage are in place. |
 | PLN-006 | Config Parsing, Validation, and Effective Runtime Policy | done | 2026-04-01 | `e26821b`, `1458a90` | Topology/rules parsing and runtime derivation are in place; standalone rules now report root-relative validation paths while embedded topology rules keep `rules.*` paths. |
 | PLN-007 | Topology Primitives and TAP Reconciliation | done | 2026-04-01 | `d83aba1`, `aa59a77`, `1458a90` | Controller-owned topology lifecycle and topology API/CLI commands are in place; destroy now returns the controller to a healthy no-topology steady state. |
-| PLN-008 | Datapath EAL, Ports, and Pass-Through Loop | not started | 2026-04-14 |  | pre-`PLN-008` hardening is verified; ready to start datapath implementation work |
+| PLN-008 | Datapath EAL, Ports, and Pass-Through Loop | in progress | 2026-04-14 |  | controller-to-daemon runtime argument wiring and `dpdkd` module scaffolding are in place; real DPDK startup and forwarding are still pending |
 | PLN-009 | Datapath Status, Stats, and User Surface | not started | 2026-03-31 |  |  |
 | PLN-010 | Rules Engine and Atomic Ruleset Replacement | not started | 2026-03-31 |  |  |
 | PLN-011 | Capture, Scenarios, and Metrics | not started | 2026-03-31 |  |  |
@@ -651,6 +651,59 @@ Entries are append-only and ordered so session history can be reconstructed with
   - start `PLN-008`
 - Commit:
   - `203c082` `docs: record successful privileged topology smoke verification`
+
+### PRG-021 | 2026-04-14
+
+- Ticket: `PLN-008`
+- Status change: not started -> in progress
+- Implemented:
+  - added controller-side rendering of the validated datapath runtime profile into `pktlab-dpdkd`
+    launch arguments for `lcores`, `hugepages_mb`, queue sizes, mempool size, and deterministic
+    ingress/egress TAP names
+  - extended `pktlab-dpdkd` CLI parsing and daemon config so those runtime knobs are accepted and
+    validated at startup
+  - added the first `PLN-008` datapath module scaffolding in `dpdkd/src/datapath.c`,
+    `dpdkd/src/eal.c`, and `dpdkd/src/ports.c`
+  - taught Meson to look for `libdpdk.pc` and compile an honest fallback build when the
+    development package is absent, instead of pretending the fast path exists
+  - updated the datapath smoke test to exercise the new runtime-argument surface
+- Files touched:
+  - `ctrld/pktlab_ctrld/app.py`
+  - `ctrld/tests/unit/test_controller_runtime.py`
+  - `dpdkd/meson.build`
+  - `dpdkd/src/daemon.c`
+  - `dpdkd/src/daemon.h`
+  - `dpdkd/src/main.c`
+  - `dpdkd/src/datapath.c`
+  - `dpdkd/src/datapath.h`
+  - `dpdkd/src/eal.c`
+  - `dpdkd/src/eal.h`
+  - `dpdkd/src/ports.c`
+  - `dpdkd/src/ports.h`
+  - `dpdkd/tests/integration/test_ipc_smoke.py`
+  - `README.md`
+  - `docs/progress.md`
+- Verification:
+  - confirmed `meson setup build/dpdkd dpdkd --reconfigure` resolved `libdpdk` `25.11.0` on this host
+  - reconfigured and rebuilt `dpdkd` with `meson setup build/dpdkd dpdkd --reconfigure` and
+    `meson compile -C build/dpdkd`
+  - ran `python3 dpdkd/tests/integration/test_ipc_smoke.py build/dpdkd/pktlab-dpdkd`
+  - ran `meson test -C build/dpdkd --print-errorlogs`
+  - ran `.venv/bin/python -m compileall ctrld/pktlab_ctrld ctrld/tests`
+  - ran `.venv/bin/python -m unittest discover -s ctrld/tests -t ctrld -v`
+  - ran `git diff --check`
+- Remaining:
+  - replace the fallback datapath start path with real `rte_eal_init()` and TAP PMD bring-up
+  - create `dtap0` and `dtap1` from DPDK so controller TAP reconciliation can succeed live
+  - add the single-core pass-through forwarding loop and verify packets cross the lab
+- Risks or blockers:
+  - the DPDK toolchain is present on this host, so the remaining gap is implementation rather than
+    dependency discovery; the real EAL path still needs a follow-up slice and runtime verification
+- Next step:
+  - implement the actual DPDK EAL startup and TAP PMD device creation inside the new datapath
+    module layout
+- Commit:
+  - `<pending>`
 
 ## Read Before Continuing
 

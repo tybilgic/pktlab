@@ -25,10 +25,13 @@ Implemented today:
 - controller- and CLI-side integration coverage for the first end-to-end control slice
 - an opt-in privileged topology smoke test that exercises real `ip netns` apply/destroy host
   mutations with synthetic datapath-side `dtap0` and `dtap1` interfaces
+- first `PLN-008` runtime-plumbing slice: the controller now passes the validated datapath runtime
+  profile and deterministic TAP names into `pktlab-dpdkd`, and the daemon accepts those knobs via
+  a real runtime-config surface
 
 Not implemented yet:
 
-- DPDK EAL, TAP PMD ports, forwarding loop, and rules engine
+- DPDK EAL startup, TAP PMD port creation, forwarding loop, and rules engine
 - live end-to-end topology apply against the real datapath; the current IPC-only stub does not
   create `dtap0` and `dtap1`, so controller TAP reconciliation will time out on a real host until
   `PLN-008` lands
@@ -62,8 +65,9 @@ This file should stay aligned with the real repository state.
 - Python `3.11+`
 - DPDK target version: `25.11.0`
 
-Note: the current datapath stub does not link against DPDK yet. DPDK becomes a runtime/build
-dependency in later tickets.
+Meson now looks for `libdpdk.pc` while configuring `dpdkd`. If it is absent, the daemon still
+builds and the current IPC/runtime-plumbing slice remains testable, but the real TAP-backed fast
+path is not available yet.
 
 ## Prerequisites
 
@@ -97,12 +101,19 @@ workflow until later tickets wire the make targets to the real build and test st
 
 ## Build
 
-Build the current datapath stub:
+Build the datapath daemon:
 
 ```sh
 meson setup build/dpdkd dpdkd --reconfigure
 meson compile -C build/dpdkd
 ```
+
+Build note:
+
+- if `libdpdk.pc` is missing on the host, Meson warns and builds the current non-DPDK fallback path
+- that fallback still supports the controller-facing runtime arguments and the existing IPC tests
+- `PLN-008` is not complete until a host with the DPDK development package can build and verify the
+  real TAP PMD datapath path
 
 Sanity-check the current Python tree:
 
@@ -181,6 +192,8 @@ build/dpdkd/pktlab-dpdkd --socket-path /tmp/pktlab-dpdkd.sock
 Runtime notes:
 
 - default socket path: `/run/pktlab/dpdkd.sock`
+- the daemon now accepts runtime knobs for `--lcores`, `--hugepages-mb`, queue sizes, mempool size,
+  and deterministic ingress/egress TAP names
 - the daemon handles `SIGINT` and `SIGTERM`
 - supported IPC commands: `ping`, `get_version`, `get_health`
 
@@ -211,6 +224,8 @@ Controller runtime notes:
 - `pktlabctl` talks only to the controller HTTP API, not to the datapath socket directly
 - topology apply will stop any currently supervised datapath instance and restart it inside the
   configured datapath namespace before TAP reconciliation
+- topology apply now passes the controller-derived runtime profile into `pktlab-dpdkd`, including
+  `lcores`, `hugepages_mb`, queue sizes, mempool size, and ingress/egress TAP names
 - with the current IPC-only datapath stub, live `topology apply` is expected to fail while waiting
   for `dtap0` and `dtap1`; the API and CLI surface are implemented and covered in tests, but real
   TAP-backed success starts with `PLN-008`

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Smoke test for the dpdkd IPC stub."""
+"""Smoke test for the dpdkd IPC and runtime argument surface."""
 
 from __future__ import annotations
 
@@ -52,7 +52,27 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="pktlab-dpdkd-") as tmpdir:
         socket_path = pathlib.Path(tmpdir) / "dpdkd.sock"
         proc = subprocess.Popen(
-            [str(executable), "--socket-path", str(socket_path)],
+            [
+                str(executable),
+                "--socket-path",
+                str(socket_path),
+                "--lcores",
+                "1",
+                "--hugepages-mb",
+                "256",
+                "--burst-size",
+                "32",
+                "--rx-queue-size",
+                "256",
+                "--tx-queue-size",
+                "256",
+                "--mempool-size",
+                "4096",
+                "--ingress-port-name",
+                "dtap0",
+                "--egress-port-name",
+                "dtap1",
+            ],
             stderr=subprocess.PIPE,
             stdout=subprocess.DEVNULL,
             text=True,
@@ -83,6 +103,7 @@ def main() -> int:
             assert health["payload"]["health"]["state"] == "running"
             assert health["payload"]["health"]["ports_ready"] is False
             assert health["payload"]["health"]["paused"] is False
+            assert "dtap0/dtap1" in health["payload"]["health"]["message"]
 
             unknown = send_request(
                 socket_path,

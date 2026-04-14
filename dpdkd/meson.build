@@ -14,10 +14,24 @@ pktlab_dpdkd_includes = include_directories('include')
 pktlab_dpdkd_src_includes = include_directories('src')
 
 python3 = import('python').find_installation('python3')
+dpdk_dep = dependency('libdpdk', required: false, method: 'pkg-config')
+
+pktlab_dpdkd_c_args = []
+pktlab_dpdkd_dependencies = []
+if dpdk_dep.found()
+  pktlab_dpdkd_c_args += '-DPKTLAB_DPDKD_HAS_DPDK=1'
+  pktlab_dpdkd_dependencies += dpdk_dep
+else
+  pktlab_dpdkd_c_args += '-DPKTLAB_DPDKD_HAS_DPDK=0'
+  warning('libdpdk was not found; pktlab-dpdkd will build without the PLN-008 fast path')
+endif
 
 pktlab_dpdkd_sources = files(
   'src/main.c',
   'src/daemon.c',
+  'src/datapath.c',
+  'src/eal.c',
+  'src/ports.c',
   'src/ipc_server.c',
   'src/json_proto.c',
   'src/health.c',
@@ -29,6 +43,8 @@ pktlab_dpdkd = executable(
   'pktlab-dpdkd',
   pktlab_dpdkd_sources,
   include_directories: [pktlab_dpdkd_includes, pktlab_dpdkd_src_includes],
+  c_args: pktlab_dpdkd_c_args,
+  dependencies: pktlab_dpdkd_dependencies,
 )
 
 test(
