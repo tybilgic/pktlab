@@ -4,8 +4,8 @@
 
 - Active milestone: `M4`
 - Active ticket: `PLN-008`
-- Overall state: the repo now includes the route-ordering fix exposed by the first privileged topology smoke run; rerun the privileged smoke path on a root-capable host, then resume `PLN-008`
-- Latest progress entry: `PRG-019`
+- Overall state: pre-`PLN-008` hardening is now verified on a root-capable host; `PLN-008` is ready to resume
+- Latest progress entry: `PRG-020`
 
 ## Ticket Status
 
@@ -18,7 +18,7 @@
 | PLN-005 | Controller Bootstrap, Health API, and CLI Status | done | 2026-04-01 | `012be4d`, `fc08760` | Controller supervision, `/health`, `pktlabctl status`, and integration coverage are in place. |
 | PLN-006 | Config Parsing, Validation, and Effective Runtime Policy | done | 2026-04-01 | `e26821b`, `1458a90` | Topology/rules parsing and runtime derivation are in place; standalone rules now report root-relative validation paths while embedded topology rules keep `rules.*` paths. |
 | PLN-007 | Topology Primitives and TAP Reconciliation | done | 2026-04-01 | `d83aba1`, `aa59a77`, `1458a90` | Controller-owned topology lifecycle and topology API/CLI commands are in place; destroy now returns the controller to a healthy no-topology steady state. |
-| PLN-008 | Datapath EAL, Ports, and Pass-Through Loop | not started | 2026-04-14 |  | ready to resume after the new privileged topology smoke path is executed on a root-capable host |
+| PLN-008 | Datapath EAL, Ports, and Pass-Through Loop | not started | 2026-04-14 |  | pre-`PLN-008` hardening is verified; ready to start datapath implementation work |
 | PLN-009 | Datapath Status, Stats, and User Surface | not started | 2026-03-31 |  |  |
 | PLN-010 | Rules Engine and Atomic Ruleset Replacement | not started | 2026-03-31 |  |  |
 | PLN-011 | Capture, Scenarios, and Metrics | not started | 2026-03-31 |  |  |
@@ -629,6 +629,28 @@ Entries are append-only and ordered so session history can be reconstructed with
   - rerun the privileged topology smoke path on a root-capable host and, if it passes, resume `PLN-008`
 - Commit:
   - `e5d17ed` `topology: install static routes after links are up`
+
+### PRG-020 | 2026-04-14
+
+- Ticket: pre-`PLN-008` hardening follow-up
+- Status change: route-ordering fix landed and waiting for root-backed confirmation -> privileged topology smoke path passed on a root-capable host; pre-`PLN-008` hardening is complete
+- Implemented:
+  - executed the opt-in privileged topology smoke test on a root-capable host
+  - verified that the real `ip netns` apply/destroy path now completes successfully end to end after the route-ordering fix
+  - updated the tracker so `PLN-008` is explicitly ready to resume
+- Files touched:
+  - `docs/progress.md`
+- Verification:
+  - ran `sudo env PKTLAB_RUN_PRIVILEGED_TOPOLOGY_SMOKE=1 .venv/bin/python -m unittest discover -s ctrld/tests/integration -t ctrld -p 'test_topology_manager_privileged.py' -v`
+  - confirmed `test_apply_and_destroy_mutate_the_real_host_network_stack` passed
+- Remaining:
+  - start `PLN-008` and implement the real datapath EAL init, TAP PMD ports, and pass-through forwarding loop
+- Risks or blockers:
+  - live topology apply against the real datapath remains blocked until `PLN-008` creates `dtap0` and `dtap1`; this is now the intended next implementation step rather than a hardening blocker
+- Next step:
+  - start `PLN-008`
+- Commit:
+  - `<pending>`
 
 ## Read Before Continuing
 
