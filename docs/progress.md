@@ -650,7 +650,7 @@ Entries are append-only and ordered so session history can be reconstructed with
 - Next step:
   - start `PLN-008`
 - Commit:
-  - `<pending>`
+  - `203c082` `docs: record successful privileged topology smoke verification`
 
 ## Read Before Continuing
 
