@@ -4,8 +4,8 @@
 
 - Active milestone: `M4`
 - Active ticket: `PLN-008`
-- Overall state: the remaining pre-`PLN-008` hardening work is now implemented in the repo; run the privileged topology smoke path on a root-capable host, then resume `PLN-008`
-- Latest progress entry: `PRG-018`
+- Overall state: the repo now includes the route-ordering fix exposed by the first privileged topology smoke run; rerun the privileged smoke path on a root-capable host, then resume `PLN-008`
+- Latest progress entry: `PRG-019`
 
 ## Ticket Status
 
@@ -602,6 +602,33 @@ Entries are append-only and ordered so session history can be reconstructed with
   - run the privileged topology smoke path on a root-capable host, then start `PLN-008`
 - Commit:
   - `e950097` `tests: add a privileged topology smoke path`
+
+### PRG-019 | 2026-04-14
+
+- Ticket: pre-`PLN-008` hardening follow-up
+- Status change: privileged topology smoke path added -> first root-backed smoke run exposed a real route-ordering defect; fix landed in repo and the smoke path should be rerun
+- Implemented:
+  - analyzed the first real privileged smoke failure and confirmed that `TopologyManager.apply()` was programming static routes before the topology links were brought up
+  - moved route installation to the end of the apply flow so host-facing interfaces and datapath-side bridge attachments are already up before static routes are installed
+  - strengthened the fake-netns topology-manager integration test so it asserts route programming happens after the relevant source and sink interfaces are brought up
+- Files touched:
+  - `ctrld/pktlab_ctrld/topology/manager.py`
+  - `ctrld/tests/integration/test_topology_manager.py`
+  - `docs/progress.md`
+- Verification:
+  - ran `.venv/bin/python -m compileall ctrld/pktlab_ctrld ctrld/tests`
+  - ran `.venv/bin/python -m unittest discover -s ctrld/tests -t ctrld -p 'test_topology_manager.py' -v`
+  - ran `.venv/bin/python -m unittest discover -s ctrld/tests -t ctrld -v`
+  - ran `git diff --check`
+- Remaining:
+  - rerun `sudo env PKTLAB_RUN_PRIVILEGED_TOPOLOGY_SMOKE=1 .venv/bin/python -m unittest discover -s ctrld/tests/integration -t ctrld -p 'test_topology_manager_privileged.py' -v` on a root-capable host to confirm the real host-backed path now passes
+  - live topology apply is still expected to fail against the current datapath stub until `PLN-008` creates `dtap0` and `dtap1`
+- Risks or blockers:
+  - this environment still cannot execute the privileged host-backed smoke path because the current user is not root and does not have `CAP_NET_ADMIN`
+- Next step:
+  - rerun the privileged topology smoke path on a root-capable host and, if it passes, resume `PLN-008`
+- Commit:
+  - `<pending>`
 
 ## Read Before Continuing
 

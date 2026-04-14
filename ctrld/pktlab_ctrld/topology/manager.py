@@ -89,7 +89,6 @@ class TopologyManager:
                 ensure_namespaces(validated, netns=self._netns)
                 ensure_links(validated, netns=self._netns)
                 ensure_bridges(validated, netns=self._netns)
-                ensure_routes(validated, netns=self._netns)
                 datapath_status = self._start_datapath_locked(validated)
                 reconcile_taps(
                     validated,
@@ -98,6 +97,7 @@ class TopologyManager:
                     poll_interval_seconds=self._tap_poll_interval_seconds,
                 )
                 bring_link_endpoints_up(validated, netns=self._netns)
+                ensure_routes(validated, netns=self._netns)
             except Exception as exc:
                 cleanup_error = self._cleanup_failed_apply(validated)
                 if isinstance(exc, PktlabError):

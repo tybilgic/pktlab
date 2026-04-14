@@ -167,6 +167,14 @@ class TopologyManagerIntegrationTests(unittest.TestCase):
         self.assertIn(("route-replace", "tg-src", "10.0.1.0/24", "10.0.0.254"), self.netns.commands)
         self.assertIn(("link-up", "dpdk-host", "dtap0"), self.netns.commands)
         self.assertIn(("link-up", "dpdk-host", "br-out"), self.netns.commands)
+        self.assertLess(
+            self.netns.commands.index(("link-up", "tg-src", "eth0")),
+            self.netns.commands.index(("route-replace", "tg-src", "10.0.1.0/24", "10.0.0.254")),
+        )
+        self.assertLess(
+            self.netns.commands.index(("link-up", "tg-sink", "eth0")),
+            self.netns.commands.index(("route-replace", "tg-sink", "10.0.0.0/24", "10.0.1.254")),
+        )
 
     def test_destroy_runs_reverse_safe_cleanup_and_is_idempotent(self) -> None:
         self.manager.apply("lab/topology.yaml")
