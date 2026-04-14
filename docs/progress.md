@@ -4,8 +4,8 @@
 
 - Active milestone: `M4`
 - Active ticket: `PLN-008`
-- Overall state: core controller/topology hardening fixes landed; the remaining pre-`PLN-008` gap is live privileged topology smoke coverage
-- Latest progress entry: `PRG-017`
+- Overall state: the remaining pre-`PLN-008` hardening work is now implemented in the repo; run the privileged topology smoke path on a root-capable host, then resume `PLN-008`
+- Latest progress entry: `PRG-018`
 
 ## Ticket Status
 
@@ -18,7 +18,7 @@
 | PLN-005 | Controller Bootstrap, Health API, and CLI Status | done | 2026-04-01 | `012be4d`, `fc08760` | Controller supervision, `/health`, `pktlabctl status`, and integration coverage are in place. |
 | PLN-006 | Config Parsing, Validation, and Effective Runtime Policy | done | 2026-04-01 | `e26821b`, `1458a90` | Topology/rules parsing and runtime derivation are in place; standalone rules now report root-relative validation paths while embedded topology rules keep `rules.*` paths. |
 | PLN-007 | Topology Primitives and TAP Reconciliation | done | 2026-04-01 | `d83aba1`, `aa59a77`, `1458a90` | Controller-owned topology lifecycle and topology API/CLI commands are in place; destroy now returns the controller to a healthy no-topology steady state. |
-| PLN-008 | Datapath EAL, Ports, and Pass-Through Loop | not started | 2026-04-02 |  | deferred until the remaining privileged topology smoke hardening follow-up lands |
+| PLN-008 | Datapath EAL, Ports, and Pass-Through Loop | not started | 2026-04-14 |  | ready to resume after the new privileged topology smoke path is executed on a root-capable host |
 | PLN-009 | Datapath Status, Stats, and User Surface | not started | 2026-03-31 |  |  |
 | PLN-010 | Rules Engine and Atomic Ruleset Replacement | not started | 2026-03-31 |  |  |
 | PLN-011 | Capture, Scenarios, and Metrics | not started | 2026-03-31 |  |  |
@@ -576,6 +576,32 @@ Entries are append-only and ordered so session history can be reconstructed with
   - add a real privileged topology apply/destroy smoke path, then resume `PLN-008`
 - Commit:
   - `dcc980d` `docs: replace placeholder rules and controller API contracts`
+
+### PRG-018 | 2026-04-14
+
+- Ticket: pre-`PLN-008` hardening follow-up
+- Status change: privileged topology smoke coverage missing -> privileged topology smoke path added and documented for root-capable hosts
+- Implemented:
+  - added an opt-in integration smoke test that drives `TopologyManager` through the real `ip netns` helper instead of the fake in-memory netns runner
+  - made the privileged smoke test create synthetic datapath-side `dtap0` and `dtap1` interfaces in the datapath namespace so the host-side apply/destroy path can be verified before `PLN-008` lands the real TAP-backed datapath
+  - documented the explicit privileged smoke command in the README and clarified that the default controller suite still uses the fake-netns topology integration coverage while the new smoke path is opt-in
+- Files touched:
+  - `ctrld/tests/integration/test_topology_manager_privileged.py`
+  - `README.md`
+  - `docs/progress.md`
+- Verification:
+  - ran `.venv/bin/python -m compileall ctrld/pktlab_ctrld ctrld/tests`
+  - ran `.venv/bin/python -m unittest discover -s ctrld/tests -t ctrld -v`
+  - confirmed the new privileged smoke test is present in controller test discovery and cleanly skips without `PKTLAB_RUN_PRIVILEGED_TOPOLOGY_SMOKE=1` in this non-root environment
+- Remaining:
+  - run `sudo env PKTLAB_RUN_PRIVILEGED_TOPOLOGY_SMOKE=1 .venv/bin/python -m unittest discover -s ctrld/tests/integration -t ctrld -p 'test_topology_manager_privileged.py' -v` on a root-capable host to verify the new real-host path end to end
+  - live topology apply is still expected to fail against the current datapath stub until `PLN-008` creates `dtap0` and `dtap1`
+- Risks or blockers:
+  - the repo now contains the missing privileged topology smoke coverage, but this environment cannot execute it because the current user is not root and does not have `CAP_NET_ADMIN`
+- Next step:
+  - run the privileged topology smoke path on a root-capable host, then start `PLN-008`
+- Commit:
+  - `e950097` `tests: add a privileged topology smoke path`
 
 ## Read Before Continuing
 
