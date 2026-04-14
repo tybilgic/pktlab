@@ -23,6 +23,8 @@ Implemented today:
   lifecycle, namespaced datapath restart, and TAP reconciliation logic
 - topology API and CLI surface for `pktlabctl topology apply -f ...` and `pktlabctl topology destroy`
 - controller- and CLI-side integration coverage for the first end-to-end control slice
+- an opt-in privileged topology smoke test that exercises real `ip netns` apply/destroy host
+  mutations with synthetic datapath-side `dtap0` and `dtap1` interfaces
 
 Not implemented yet:
 
@@ -128,6 +130,14 @@ Run the controller test discovery:
 .venv/bin/python -m unittest discover -s ctrld/tests -t ctrld -v
 ```
 
+Run the privileged host-backed topology smoke path explicitly:
+
+```sh
+sudo env PKTLAB_RUN_PRIVILEGED_TOPOLOGY_SMOKE=1 \
+  .venv/bin/python -m unittest discover -s ctrld/tests/integration -t ctrld \
+  -p 'test_topology_manager_privileged.py' -v
+```
+
 Run the CLI smoke suite:
 
 ```sh
@@ -146,8 +156,11 @@ Controller test note:
 - the `dpdk_client` integration test exercises the typed IPC client against the C stub daemon
 - the config unit tests exercise topology/rules parsing, semantic validation, and effective
   datapath runtime derivation
-- the topology manager test exercises apply/destroy ordering and bridge membership using a fake
-  netns system, because live namespace mutations require elevated privileges
+- the default topology manager integration test exercises apply/destroy ordering and bridge
+  membership using a fake netns system
+- the privileged topology smoke test is opt-in, requires root or `CAP_NET_ADMIN`, and exercises
+  the real `ip netns` apply/destroy flow with synthetic datapath-side `dtap0` and `dtap1`
+  interfaces until `PLN-008` provides the real TAP-backed datapath
 
 Optional contract sanity checks:
 
