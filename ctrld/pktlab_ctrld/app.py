@@ -68,6 +68,15 @@ class DatapathRuntimeStatsSnapshot:
     stats: DatapathStatsModel
 
 
+@dataclass(frozen=True, slots=True)
+class DatapathStatsResetResult:
+    """Controller-visible datapath stats reset result."""
+
+    datapath_status: DatapathProcessStatus
+    stats: DatapathStatsModel
+    message: str
+
+
 class ControllerRuntime:
     """Own controller lifecycle, datapath supervision, and health reporting."""
 
@@ -318,6 +327,37 @@ class ControllerRuntime:
                 stats=stats_result.unwrap().stats,
             )
 
+    def reset_datapath_stats(self) -> DatapathStatsResetResult:
+        """Reset live datapath counters and return the post-reset snapshot."""
+
+        with self._lock:
+            if self._supervisor is None:
+                raise PktlabError(
+                    ErrorCode.STATE_CONFLICT,
+                    "controller is not supervising a datapath process",
+                )
+
+            reset_result = self._supervisor.reset_stats()
+            if not reset_result.ok:
+                raise self._pktlab_error_from_datapath_error(
+                    reset_result.error.code,
+                    reset_result.error.message,
+                )
+
+            datapath_status = self._current_datapath_status_locked()
+            stats_result = self._supervisor.get_stats()
+            if not stats_result.ok:
+                raise self._pktlab_error_from_datapath_error(
+                    stats_result.error.code,
+                    stats_result.error.message,
+                )
+
+            return DatapathStatsResetResult(
+                datapath_status=datapath_status,
+                stats=stats_result.unwrap().stats,
+                message=reset_result.unwrap().message,
+            )
+
     def _recompute_controller_health(self, datapath_status: DatapathProcessStatus) -> None:
         if self._controller_override_message is not None:
             self._controller_state = "degraded"
@@ -504,6 +544,7 @@ __all__ = [
     "ControllerConfig",
     "ControllerHealthSnapshot",
     "ControllerRuntime",
+    "DatapathStatsResetResult",
     "DatapathRuntimeStatsSnapshot",
     "DatapathRuntimeStatusSnapshot",
     "build_dpdk_runtime_args",

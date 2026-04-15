@@ -129,6 +129,23 @@ class DpdkClientUnitTests(unittest.TestCase):
         self.assertTrue(result.ok)
         self.assertEqual(result.unwrap().stats.rx_packets, 1)
 
+    def test_reset_stats_returns_typed_success_result(self) -> None:
+        client = DpdkClient("/tmp/pktlab.sock", request_id_factory=lambda: "req-client-6")
+
+        with mock.patch.object(
+            client,
+            "_exchange",
+            return_value=RawSuccessEnvelope(
+                id="req-client-6",
+                ok=True,
+                payload={"message": "datapath counters reset"},
+            ),
+        ):
+            result = client.reset_stats()
+
+        self.assertTrue(result.ok)
+        self.assertEqual(result.unwrap().message, "datapath counters reset")
+
 
 if __name__ == "__main__":
     unittest.main()

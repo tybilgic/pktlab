@@ -93,6 +93,38 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ControllerErrorResponse"
+  /datapath/stats/reset:
+    post:
+      tags:
+        - datapath
+      summary: Reset datapath counters
+      operationId: resetDatapathStats
+      description: Reset live datapath counters and return the post-reset snapshot.
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatapathStatsResetResponse"
+        "409":
+          description: Controller state conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControllerErrorResponse"
+        "503":
+          description: Datapath IPC is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControllerErrorResponse"
+        "500":
+          description: Unexpected controller or datapath failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControllerErrorResponse"
   /topology/apply:
     post:
       tags:
@@ -371,6 +403,21 @@ components:
           $ref: "#/components/schemas/DatapathHealth"
         stats:
           $ref: "#/components/schemas/DatapathStats"
+    DatapathStatsResetResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - datapath
+        - stats
+        - message
+      properties:
+        datapath:
+          $ref: "#/components/schemas/DatapathHealth"
+        stats:
+          $ref: "#/components/schemas/DatapathStats"
+        message:
+          type: string
+          minLength: 1
     TopologyApplyRequest:
       type: object
       additionalProperties: false

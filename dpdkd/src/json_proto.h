@@ -38,6 +38,12 @@ int pktlab_json_proto_parse_request(
     struct pktlab_dpdkd_error *error
 );
 int pktlab_json_proto_make_pong_payload(char *buffer, size_t buffer_cap, size_t *json_len);
+int pktlab_json_proto_make_ack_payload(
+    const char *message,
+    char *buffer,
+    size_t buffer_cap,
+    size_t *json_len
+);
 int pktlab_json_proto_make_version_payload(char *buffer, size_t buffer_cap, size_t *json_len);
 int pktlab_json_proto_make_health_payload(
     const struct pktlab_health_snapshot *health,

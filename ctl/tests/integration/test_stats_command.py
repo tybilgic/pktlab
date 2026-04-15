@@ -24,7 +24,7 @@ def reserve_tcp_port() -> int:
 class StatsCommandIntegrationTests(unittest.TestCase):
     """Verify the stats command talks only to the controller API surface."""
 
-    def test_stats_show_supports_human_and_json_output(self) -> None:
+    def test_stats_show_and_reset_support_human_and_json_output(self) -> None:
         if not DEFAULT_DPDKD_BINARY.exists():
             raise unittest.SkipTest(
                 f"dpdkd stub binary is missing; build it first at {DEFAULT_DPDKD_BINARY}"
@@ -101,6 +101,48 @@ class StatsCommandIntegrationTests(unittest.TestCase):
                 self.assertIn(payload["datapath"]["state"], {"running", "degraded"})
                 self.assertEqual(payload["stats"]["rx_packets"], 0)
                 self.assertEqual(payload["stats"]["rule_hits"], {})
+
+                reset_human = subprocess.run(
+                    [
+                        sys.executable,
+                        "-m",
+                        "pktlabctl.main",
+                        "--controller-url",
+                        controller_url,
+                        "stats",
+                        "reset",
+                    ],
+                    cwd=REPO_ROOT,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(reset_human.returncode, 0, msg=reset_human.stderr)
+                self.assertIn("datapath stats reset:", reset_human.stdout)
+                self.assertIn("post-reset counters:", reset_human.stdout)
+                self.assertIn("rx_packets: 0", reset_human.stdout)
+
+                reset_json = subprocess.run(
+                    [
+                        sys.executable,
+                        "-m",
+                        "pktlabctl.main",
+                        "--controller-url",
+                        controller_url,
+                        "--json",
+                        "stats",
+                        "reset",
+                    ],
+                    cwd=REPO_ROOT,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(reset_json.returncode, 0, msg=reset_json.stderr)
+                reset_payload = json.loads(reset_json.stdout)
+                self.assertEqual(reset_payload["message"], "datapath counters reset")
+                self.assertEqual(reset_payload["stats"]["rx_packets"], 0)
+                self.assertEqual(reset_payload["stats"]["rule_hits"], {})
             finally:
                 controller.terminate()
                 try:

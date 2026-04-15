@@ -182,6 +182,31 @@ class DatapathStatsResponseModel(BaseModel):
         )
 
 
+class DatapathStatsResetResponseModel(BaseModel):
+    """Controller-facing datapath stats reset result."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    datapath: DatapathHealthModel
+    stats: DatapathStatsModel
+    message: str = Field(min_length=1)
+
+    @classmethod
+    def from_result(cls, result: object) -> "DatapathStatsResetResponseModel":
+        """Map an internal datapath stats reset result into the REST model."""
+
+        from pktlab_ctrld.app import DatapathStatsResetResult
+
+        if not isinstance(result, DatapathStatsResetResult):
+            raise TypeError("result must be a DatapathStatsResetResult")
+
+        return cls(
+            datapath=_datapath_health_model_from_status(result.datapath_status),
+            stats=DatapathStatsModel.model_validate(result.stats.model_dump(mode="json")),
+            message=result.message,
+        )
+
+
 class TopologyApplyRequestModel(BaseModel):
     """Request body for topology apply."""
 
@@ -227,6 +252,7 @@ __all__ = [
     "ControllerHealthModel",
     "DatapathHealthModel",
     "DatapathPortModel",
+    "DatapathStatsResetResponseModel",
     "DatapathStatsModel",
     "DatapathStatsResponseModel",
     "DatapathStatusResponseModel",

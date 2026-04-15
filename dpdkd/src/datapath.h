@@ -81,5 +81,6 @@ void pktlab_datapath_stats_snapshot(
     const struct pktlab_datapath *datapath,
     struct dp_stats_snapshot *snapshot
 );
+void pktlab_datapath_reset_stats(struct pktlab_datapath *datapath);
 
 #endif /* PKTLAB_DPDKD_DATAPATH_H */

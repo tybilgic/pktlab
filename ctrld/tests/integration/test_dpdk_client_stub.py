@@ -40,7 +40,7 @@ def wait_for_socket(socket_path: pathlib.Path, proc: subprocess.Popen[str]) -> N
 class DpdkClientStubIntegrationTests(unittest.TestCase):
     """Verify the Python client can speak to the C IPC stub."""
 
-    def test_client_ping_version_health_ports_and_stats(self) -> None:
+    def test_client_ping_version_health_ports_stats_and_reset(self) -> None:
         if not DEFAULT_DPDKD_BINARY.exists():
             raise unittest.SkipTest(
                 f"dpdkd stub binary is missing; build it first at {DEFAULT_DPDKD_BINARY}"
@@ -105,6 +105,17 @@ class DpdkClientStubIntegrationTests(unittest.TestCase):
                 self.assertEqual(counters.tx_packets, 0)
                 self.assertEqual(counters.drop_packets, 0)
                 self.assertEqual(counters.rule_hits, {})
+
+                reset = client.reset_stats()
+                self.assertTrue(reset.ok)
+                self.assertEqual(reset.request_id, "req-it-6")
+                self.assertEqual(reset.unwrap().message, "datapath counters reset")
+
+                stats_after_reset = client.get_stats()
+                self.assertTrue(stats_after_reset.ok)
+                self.assertEqual(stats_after_reset.request_id, "req-it-7")
+                self.assertEqual(stats_after_reset.unwrap().stats.rx_packets, 0)
+                self.assertEqual(stats_after_reset.unwrap().stats.tx_packets, 0)
             finally:
                 proc.terminate()
                 try:

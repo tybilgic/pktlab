@@ -71,4 +71,10 @@ That read-only slice is now in place:
 - the controller exposes `GET /datapath/status` and `GET /datapath/stats`
 - `pktlabctl status` now shows live port state and `pktlabctl stats show` is implemented
 
-Remaining work inside `PLN-009` is the writable action surface: `reset_stats`, pause/resume, and shutdown semantics.
+The next writable slice is also now in place:
+
+- `reset_stats` is implemented in the daemon IPC
+- the controller exposes `POST /datapath/stats/reset`
+- `pktlabctl stats reset` is implemented and returns the post-reset counters
+
+Remaining work inside `PLN-009` is the rest of the writable action surface: pause/resume and shutdown semantics.

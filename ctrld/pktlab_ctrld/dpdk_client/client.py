@@ -17,6 +17,7 @@ from .models import (
     AckPayload,
     CommandResult,
     GetPortsRequest,
+    ResetStatsRequest,
     GetStatsRequest,
     GetHealthRequest,
     GetVersionRequest,
@@ -81,6 +82,12 @@ class DpdkClient:
 
         request = GetStatsRequest(id=self._request_id_factory())
         return self._typed_call(request, StatsPayload)
+
+    def reset_stats(self) -> CommandResult[AckPayload]:
+        """Reset the current datapath counters."""
+
+        request = ResetStatsRequest(id=self._request_id_factory())
+        return self._typed_call(request, AckPayload)
 
     def _typed_call(
         self,

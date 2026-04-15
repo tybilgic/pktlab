@@ -96,6 +96,16 @@ class DatapathStatsResponseModel(BaseModel):
     stats: DatapathStatsModel
 
 
+class DatapathStatsResetResponseModel(BaseModel):
+    """Typed `/datapath/stats/reset` response used by the CLI."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    datapath: DatapathStatusModel
+    stats: DatapathStatsModel
+    message: str = Field(min_length=1)
+
+
 class TopologyOperationResponseModel(BaseModel):
     """Typed topology lifecycle response used by the CLI."""
 
@@ -164,6 +174,17 @@ class ControllerClient:
         except ValidationError as exc:
             raise ControllerClientError(
                 f"controller datapath stats response did not match the expected schema: {exc}"
+            ) from exc
+
+    def reset_datapath_stats(self) -> DatapathStatsResetResponseModel:
+        """Reset datapath counters through the controller API."""
+
+        response = self._request_json("POST", "/datapath/stats/reset", json_body={})
+        try:
+            return DatapathStatsResetResponseModel.model_validate(response)
+        except ValidationError as exc:
+            raise ControllerClientError(
+                f"controller datapath stats-reset response did not match the expected schema: {exc}"
             ) from exc
 
     def apply_topology(self, config_path: str) -> TopologyOperationResponseModel:
@@ -235,6 +256,7 @@ __all__ = [
     "DatapathStatusModel",
     "DatapathStatusResponseModel",
     "DatapathStatsModel",
+    "DatapathStatsResetResponseModel",
     "DatapathStatsResponseModel",
     "HealthResponseModel",
     "TopologyOperationResponseModel",

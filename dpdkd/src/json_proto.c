@@ -860,14 +860,43 @@ static int pktlab_json_proto_snprintf(
 
 int pktlab_json_proto_make_pong_payload(char *buffer, size_t buffer_cap, size_t *json_len)
 {
+    return pktlab_json_proto_make_ack_payload("pong", buffer, buffer_cap, json_len);
+}
+
+int pktlab_json_proto_make_ack_payload(
+    const char *message,
+    char *buffer,
+    size_t buffer_cap,
+    size_t *json_len
+)
+{
+    char escaped_message[PKTLAB_DPDKD_MESSAGE_LEN * 2U];
+    size_t ignored_len;
     struct pktlab_dpdkd_error error;
+    const char *safe_message;
+
+    safe_message = message;
+    if (safe_message == NULL) {
+        safe_message = "";
+    }
+
+    if (pktlab_json_proto_escape_string(
+            safe_message, escaped_message, sizeof(escaped_message), &ignored_len) != 0) {
+        pktlab_json_proto_set_error(
+            &error,
+            PKTLAB_DPDKD_ERR_INTERNAL,
+            "ack message could not be escaped"
+        );
+        return -1;
+    }
 
     return pktlab_json_proto_snprintf(
         buffer,
         buffer_cap,
         json_len,
         &error,
-        "{\"message\":\"pong\"}"
+        "{\"message\":\"%s\"}",
+        escaped_message
     );
 }
 

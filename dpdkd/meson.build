@@ -62,9 +62,25 @@ pktlab_dpdkd_test_eal_args = executable(
   dependencies: pktlab_dpdkd_dependencies,
 )
 
+pktlab_dpdkd_test_stats_tracker = executable(
+  'test-stats-tracker',
+  files(
+    'tests/unit/test_stats_tracker.c',
+    'src/stats.c',
+  ),
+  include_directories: [pktlab_dpdkd_includes, pktlab_dpdkd_src_includes],
+  c_args: pktlab_dpdkd_c_args,
+  dependencies: pktlab_dpdkd_dependencies,
+)
+
 test(
   'eal-args',
   pktlab_dpdkd_test_eal_args,
+)
+
+test(
+  'stats-tracker',
+  pktlab_dpdkd_test_stats_tracker,
 )
 
 test(

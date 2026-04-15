@@ -10,6 +10,7 @@ from typing import Callable
 
 from pktlab_ctrld.dpdk_client.client import DpdkClient
 from pktlab_ctrld.dpdk_client.models import (
+    AckPayload,
     CommandResult,
     HealthStateModel,
     PortsPayload,
@@ -145,6 +146,18 @@ class DpdkdSupervisor:
                     context={"socket_path": self.config.socket_path},
                 )
             return self._require_client_locked().get_stats()
+
+    def reset_stats(self) -> CommandResult[AckPayload]:
+        """Reset the live datapath counters over IPC."""
+
+        with self._lock:
+            status = self._status_locked()
+            if not status.reachable:
+                raise DatapathTransportError(
+                    "datapath IPC is not reachable for stats reset",
+                    context={"socket_path": self.config.socket_path},
+                )
+            return self._require_client_locked().reset_stats()
 
     def stop(self) -> None:
         """Terminate the datapath subprocess if it is running."""

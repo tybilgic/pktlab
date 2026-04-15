@@ -6,7 +6,7 @@ import sys
 from typing import TextIO
 
 from pktlabctl.client import ControllerClient, ControllerClientError
-from pktlabctl.output import render_stats
+from pktlabctl.output import render_stats, render_stats_reset
 
 
 def run_stats_show(
@@ -32,4 +32,27 @@ def run_stats_show(
     return 0
 
 
-__all__ = ["run_stats_show"]
+def run_stats_reset(
+    controller_url: str,
+    *,
+    json_output: bool,
+    stdout: TextIO | None = None,
+    stderr: TextIO | None = None,
+) -> int:
+    """Reset datapath counters through the controller API and print the result."""
+
+    stdout = stdout or sys.stdout
+    stderr = stderr or sys.stderr
+
+    try:
+        payload = ControllerClient(controller_url).reset_datapath_stats()
+    except ControllerClientError as exc:
+        stderr.write(f"pktlabctl: {exc}\n")
+        return 1
+
+    stdout.write(render_stats_reset(payload, json_output=json_output))
+    stdout.write("\n")
+    return 0
+
+
+__all__ = ["run_stats_reset", "run_stats_show"]

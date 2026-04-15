@@ -21,7 +21,7 @@ def _is_expected_degraded_datapath_message(message: str) -> bool:
 
 
 class ControllerHealthApiIntegrationTests(unittest.TestCase):
-    """Verify the controller supervises the datapath and exposes read-only status routes."""
+    """Verify the controller supervises the datapath and exposes datapath status/stats routes."""
 
     def test_health_and_datapath_endpoints_report_consistent_runtime_state(self) -> None:
         if not DEFAULT_DPDKD_BINARY.exists():
@@ -87,6 +87,15 @@ class ControllerHealthApiIntegrationTests(unittest.TestCase):
                 self.assertEqual(stats_payload["stats"]["tx_packets"], 0)
                 self.assertEqual(stats_payload["stats"]["drop_packets"], 0)
                 self.assertEqual(stats_payload["stats"]["rule_hits"], {})
+
+                reset_response = client.post("/datapath/stats/reset", json={})
+                self.assertEqual(reset_response.status_code, 200)
+                reset_payload = reset_response.json()
+                self.assertEqual(reset_payload["message"], "datapath counters reset")
+                self.assertEqual(reset_payload["datapath"]["state"], payload["datapath"]["state"])
+                self.assertEqual(reset_payload["stats"]["rx_packets"], 0)
+                self.assertEqual(reset_payload["stats"]["tx_packets"], 0)
+                self.assertEqual(reset_payload["stats"]["drop_packets"], 0)
 
 
 if __name__ == "__main__":

@@ -464,3 +464,8 @@ void pktlab_datapath_stats_snapshot(
 {
     pktlab_stats_snapshot(&datapath->stats, snapshot);
 }
+
+void pktlab_datapath_reset_stats(struct pktlab_datapath *datapath)
+{
+    pktlab_stats_reset(&datapath->stats);
+}

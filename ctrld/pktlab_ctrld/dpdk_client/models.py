@@ -105,7 +105,24 @@ class GetStatsRequest(BaseModel):
     payload: EmptyPayload = Field(default_factory=EmptyPayload)
 
 
-RequestEnvelope = PingRequest | GetVersionRequest | GetHealthRequest | GetPortsRequest | GetStatsRequest
+class ResetStatsRequest(BaseModel):
+    """Typed request envelope for the reset_stats command."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(min_length=1, pattern=REQUEST_ID_PATTERN)
+    cmd: Literal["reset_stats"] = "reset_stats"
+    payload: EmptyPayload = Field(default_factory=EmptyPayload)
+
+
+RequestEnvelope = (
+    PingRequest
+    | GetVersionRequest
+    | GetHealthRequest
+    | GetPortsRequest
+    | GetStatsRequest
+    | ResetStatsRequest
+)
 
 
 class DatapathErrorModel(BaseModel):

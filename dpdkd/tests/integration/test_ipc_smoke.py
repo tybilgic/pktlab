@@ -135,9 +135,19 @@ def main() -> int:
             assert stats["payload"]["stats"]["tx_packets"] >= 0
             assert stats["payload"]["stats"]["rule_hits"] == {}
 
+            reset_stats = send_request(
+                socket_path,
+                json.dumps({"id": "req-6", "cmd": "reset_stats", "payload": {}}).encode("utf-8"),
+            )
+            assert reset_stats == {
+                "id": "req-6",
+                "ok": True,
+                "payload": {"message": "datapath counters reset"},
+            }
+
             malformed = send_request(
                 socket_path,
-                b'{"id":"req-6","cmd":"ping","payload":',
+                b'{"id":"req-7","cmd":"ping","payload":',
             )
             assert malformed["ok"] is False
             assert malformed["error"]["code"] == "INVALID_REQUEST"

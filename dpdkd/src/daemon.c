@@ -90,6 +90,17 @@ static int pktlab_daemon_dispatch_request(
             );
             return -1;
         }
+    } else if (strcmp(request->cmd, "reset_stats") == 0) {
+        pktlab_datapath_reset_stats(&daemon->datapath);
+        if (pktlab_json_proto_make_ack_payload(
+                "datapath counters reset", payload, sizeof(payload), &payload_len) != 0) {
+            pktlab_daemon_set_error(
+                error,
+                PKTLAB_DPDKD_ERR_INTERNAL,
+                "failed to render reset-stats acknowledgement"
+            );
+            return -1;
+        }
     } else {
         pktlab_daemon_set_error(error, PKTLAB_DPDKD_ERR_UNKNOWN_COMMAND, "unknown IPC command");
         return -1;

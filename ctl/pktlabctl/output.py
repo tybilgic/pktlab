@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import json
 
-from .client import DatapathStatsResponseModel, DatapathStatusResponseModel, TopologyOperationResponseModel
+from .client import (
+    DatapathStatsResetResponseModel,
+    DatapathStatsResponseModel,
+    DatapathStatusResponseModel,
+    TopologyOperationResponseModel,
+)
 
 
 def render_status(payload: DatapathStatusResponseModel, *, json_output: bool) -> str:
@@ -68,11 +73,36 @@ def render_stats(payload: DatapathStatsResponseModel, *, json_output: bool) -> s
 def render_human_stats(payload: DatapathStatsResponseModel) -> str:
     """Format datapath counters as a readable multi-line report."""
 
-    datapath = payload.datapath
-    stats = payload.stats
+    return _render_human_stats_lines(payload.datapath, payload.stats, heading="datapath stats")
+
+
+def render_stats_reset(payload: DatapathStatsResetResponseModel, *, json_output: bool) -> str:
+    """Render a datapath stats reset payload for CLI output."""
+
+    if json_output:
+        return json.dumps(payload.model_dump(mode="json"), indent=2, sort_keys=True)
+    return render_human_stats_reset(payload)
+
+
+def render_human_stats_reset(payload: DatapathStatsResetResponseModel) -> str:
+    """Format a datapath stats reset result as a readable multi-line report."""
+
+    lines = [f"datapath stats reset: {payload.message}"]
+    lines.extend(
+        _render_human_stats_lines(
+            payload.datapath,
+            payload.stats,
+            heading="post-reset counters",
+        ).splitlines()
+    )
+    return "\n".join(lines)
+
+
+def _render_human_stats_lines(datapath: object, stats: object, *, heading: str) -> str:
+    """Render datapath counters using the shared human-readable layout."""
 
     lines = [
-        f"datapath stats: {datapath.state if datapath.state is not None else 'unknown'}",
+        f"{heading}: {datapath.state if datapath.state is not None else 'unknown'}",
         f"  socket: {datapath.socket_path}",
         f"  rx_packets: {stats.rx_packets}",
         f"  tx_packets: {stats.tx_packets}",
@@ -114,8 +144,10 @@ def render_topology_result(payload: TopologyOperationResponseModel, *, json_outp
 
 __all__ = [
     "render_human_stats",
+    "render_human_stats_reset",
     "render_human_status",
     "render_stats",
+    "render_stats_reset",
     "render_status",
     "render_topology_result",
 ]
