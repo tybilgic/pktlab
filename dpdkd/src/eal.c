@@ -11,10 +11,6 @@
 #include <rte_eal.h>
 #endif
 
-#define PKTLAB_DPDKD_EAL_ARGC 12
-#define PKTLAB_DPDKD_EAL_SOCKET_MEM_LEN 32
-#define PKTLAB_DPDKD_EAL_FILE_PREFIX_LEN 64
-
 static void pktlab_eal_set_error(
     struct pktlab_dpdkd_error *error,
     enum pktlab_dpdkd_error_code code,
@@ -128,36 +124,24 @@ int pktlab_eal_prepare(
     return 0;
 }
 
-int pktlab_eal_start(
-    struct pktlab_eal_config *eal,
+int pktlab_eal_build_argv(
+    const struct pktlab_eal_config *eal,
+    struct pktlab_eal_argv *eal_argv,
     struct pktlab_dpdkd_error *error
 )
 {
-#if PKTLAB_DPDKD_HAS_DPDK
-    char program_name[] = "pktlab-dpdkd";
-    char lcores_flag[] = "-l";
-    char no_pci_flag[] = "--no-pci";
-    char in_memory_flag[] = "--in-memory";
-    char iova_mode_flag[] = "--iova-mode=va";
-    char huge_unlink_flag[] = "--huge-unlink=always";
-    char no_telemetry_flag[] = "--no-telemetry";
-    char socket_mem_arg[PKTLAB_DPDKD_EAL_SOCKET_MEM_LEN];
-    char file_prefix_arg[PKTLAB_DPDKD_EAL_FILE_PREFIX_LEN];
-    char *argv[PKTLAB_DPDKD_EAL_ARGC];
     int argc;
     int written;
 
-    if (eal->initialized) {
-        return 0;
-    }
+    memset(eal_argv, 0, sizeof(*eal_argv));
 
     written = snprintf(
-        socket_mem_arg,
-        sizeof(socket_mem_arg),
+        eal_argv->socket_mem_arg,
+        sizeof(eal_argv->socket_mem_arg),
         "--socket-mem=%u",
         eal->hugepages_mb
     );
-    if (written < 0 || (size_t) written >= sizeof(socket_mem_arg)) {
+    if (written < 0 || (size_t) written >= sizeof(eal_argv->socket_mem_arg)) {
         pktlab_eal_set_error(
             error,
             PKTLAB_DPDKD_ERR_INTERNAL,
@@ -167,12 +151,12 @@ int pktlab_eal_start(
     }
 
     written = snprintf(
-        file_prefix_arg,
-        sizeof(file_prefix_arg),
+        eal_argv->file_prefix_arg,
+        sizeof(eal_argv->file_prefix_arg),
         "--file-prefix=pktlab-%ld",
         (long) getpid()
     );
-    if (written < 0 || (size_t) written >= sizeof(file_prefix_arg)) {
+    if (written < 0 || (size_t) written >= sizeof(eal_argv->file_prefix_arg)) {
         pktlab_eal_set_error(
             error,
             PKTLAB_DPDKD_ERR_INTERNAL,
@@ -182,20 +166,39 @@ int pktlab_eal_start(
     }
 
     argc = 0;
-    argv[argc++] = program_name;
-    argv[argc++] = lcores_flag;
-    argv[argc++] = eal->lcores;
-    argv[argc++] = no_pci_flag;
-    argv[argc++] = in_memory_flag;
-    argv[argc++] = iova_mode_flag;
-    argv[argc++] = huge_unlink_flag;
-    argv[argc++] = no_telemetry_flag;
-    argv[argc++] = socket_mem_arg;
-    argv[argc++] = file_prefix_arg;
-    argv[argc++] = eal->ingress_vdev_arg;
-    argv[argc++] = eal->egress_vdev_arg;
+    eal_argv->argv[argc++] = "pktlab-dpdkd";
+    eal_argv->argv[argc++] = "-l";
+    eal_argv->argv[argc++] = (char *) eal->lcores;
+    eal_argv->argv[argc++] = "--no-pci";
+    eal_argv->argv[argc++] = "--in-memory";
+    eal_argv->argv[argc++] = "--iova-mode=va";
+    eal_argv->argv[argc++] = "--no-telemetry";
+    eal_argv->argv[argc++] = eal_argv->socket_mem_arg;
+    eal_argv->argv[argc++] = eal_argv->file_prefix_arg;
+    eal_argv->argv[argc++] = (char *) eal->ingress_vdev_arg;
+    eal_argv->argv[argc++] = (char *) eal->egress_vdev_arg;
+    eal_argv->argc = argc;
 
-    if (rte_eal_init(argc, argv) < 0) {
+    return 0;
+}
+
+int pktlab_eal_start(
+    struct pktlab_eal_config *eal,
+    struct pktlab_dpdkd_error *error
+)
+{
+#if PKTLAB_DPDKD_HAS_DPDK
+    struct pktlab_eal_argv eal_argv;
+
+    if (eal->initialized) {
+        return 0;
+    }
+
+    if (pktlab_eal_build_argv(eal, &eal_argv, error) != 0) {
+        return -1;
+    }
+
+    if (rte_eal_init(eal_argv.argc, eal_argv.argv) < 0) {
         pktlab_eal_set_error(error, PKTLAB_DPDKD_ERR_PORT_INIT, "failed to initialize DPDK EAL");
         return -1;
     }

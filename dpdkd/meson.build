@@ -47,6 +47,22 @@ pktlab_dpdkd = executable(
   dependencies: pktlab_dpdkd_dependencies,
 )
 
+pktlab_dpdkd_test_eal_args = executable(
+  'test-eal-args',
+  files(
+    'tests/unit/test_eal_args.c',
+    'src/eal.c',
+  ),
+  include_directories: [pktlab_dpdkd_includes, pktlab_dpdkd_src_includes],
+  c_args: pktlab_dpdkd_c_args,
+  dependencies: pktlab_dpdkd_dependencies,
+)
+
+test(
+  'eal-args',
+  pktlab_dpdkd_test_eal_args,
+)
+
 test(
   'ipc-smoke',
   python3,

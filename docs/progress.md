@@ -5,7 +5,7 @@
 - Active milestone: `M4`
 - Active ticket: `PLN-008`
 - Overall state: `PLN-008` is in progress with real DPDK EAL startup and TAP PMD bring-up in place; the single-core forwarding loop and root-backed end-to-end traffic verification remain
-- Latest progress entry: `PRG-022`
+- Latest progress entry: `PRG-023`
 
 ## Ticket Status
 
@@ -18,7 +18,7 @@
 | PLN-005 | Controller Bootstrap, Health API, and CLI Status | done | 2026-04-01 | `012be4d`, `fc08760` | Controller supervision, `/health`, `pktlabctl status`, and integration coverage are in place. |
 | PLN-006 | Config Parsing, Validation, and Effective Runtime Policy | done | 2026-04-01 | `e26821b`, `1458a90` | Topology/rules parsing and runtime derivation are in place; standalone rules now report root-relative validation paths while embedded topology rules keep `rules.*` paths. |
 | PLN-007 | Topology Primitives and TAP Reconciliation | done | 2026-04-01 | `d83aba1`, `aa59a77`, `1458a90` | Controller-owned topology lifecycle and topology API/CLI commands are in place; destroy now returns the controller to a healthy no-topology steady state. |
-| PLN-008 | Datapath EAL, Ports, and Pass-Through Loop | in progress | 2026-04-15 | `4708907` | controller-to-daemon runtime plumbing plus real DPDK EAL and TAP PMD startup are in place; packet forwarding and root-backed traffic verification are still pending |
+| PLN-008 | Datapath EAL, Ports, and Pass-Through Loop | in progress | 2026-04-15 | `4708907`, `<pending>` | controller-to-daemon runtime plumbing plus real DPDK EAL and TAP PMD startup are in place; the privileged EAL argv incompatibility is fixed, while packet forwarding and root-backed traffic verification are still pending |
 | PLN-009 | Datapath Status, Stats, and User Surface | not started | 2026-03-31 |  |  |
 | PLN-010 | Rules Engine and Atomic Ruleset Replacement | not started | 2026-03-31 |  |  |
 | PLN-011 | Capture, Scenarios, and Metrics | not started | 2026-03-31 |  |  |
@@ -754,6 +754,38 @@ Entries are append-only and ordered so session history can be reconstructed with
     controller-driven traffic path end to end
 - Commit:
   - `4708907` `dpdkd: add EAL startup and TAP PMD configuration`
+
+### PRG-023 | 2026-04-15
+
+- Ticket: `PLN-008`
+- Status change: real DPDK EAL startup and TAP PMD bring-up implemented -> first root-backed TAP-startup smoke exposed an invalid EAL argv combination; fix landed and the smoke should be rerun
+- Implemented:
+  - investigated the privileged TAP-startup smoke failure and confirmed that `rte_eal_init()` rejects the specific `--in-memory` plus `--huge-unlink=always` combination used by the new datapath startup path
+  - removed the incompatible `--huge-unlink=always` flag from the generated DPDK EAL argv while keeping the intended in-memory single-process startup profile
+  - factored DPDK argv rendering into a shared helper so the startup shape is inspectable and testable without needing privileged execution
+  - added a new `dpdkd` unit test that asserts the generated argv keeps `--in-memory`, retains the deterministic TAP `--vdev` arguments, and does not reintroduce the incompatible `--huge-unlink=always` flag
+- Files touched:
+  - `dpdkd/src/eal.c`
+  - `dpdkd/src/eal.h`
+  - `dpdkd/tests/unit/test_eal_args.c`
+  - `dpdkd/meson.build`
+  - `docs/progress.md`
+- Verification:
+  - rebuilt `dpdkd` with `meson compile -C build/dpdkd`
+  - ran `meson test -C build/dpdkd --print-errorlogs`
+  - reran `python3 dpdkd/tests/integration/test_ipc_smoke.py build/dpdkd/pktlab-dpdkd`
+  - ran `git diff --check`
+- Remaining:
+  - rerun `sudo env PKTLAB_RUN_PRIVILEGED_DPDKD_SMOKE=1 python3 dpdkd/tests/integration/test_tap_startup_privileged.py build/dpdkd/pktlab-dpdkd` on a root-capable host to confirm the EAL startup fix against the real host network stack
+  - add the single-core pass-through forwarding loop so packets actually traverse ingress -> egress
+  - run a real controller-driven topology apply plus source -> datapath -> sink traffic smoke once forwarding exists
+- Risks or blockers:
+  - this environment still cannot execute the privileged datapath smoke path, so the final confirmation for the EAL argument fix depends on a rerun on the root-capable host
+  - the specific argv incompatibility is now covered by a unit test, but further privileged runtime issues may still appear once the TAP-startup smoke advances past EAL initialization
+- Next step:
+  - rerun the privileged datapath TAP-startup smoke on the root-capable host and, if it passes, move on to the single-core forwarding loop
+- Commit:
+  - `<pending>` `dpdkd: fix the privileged EAL startup arguments`
 
 ## Read Before Continuing
 
