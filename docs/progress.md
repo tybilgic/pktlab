@@ -19,7 +19,7 @@
 | PLN-006 | Config Parsing, Validation, and Effective Runtime Policy | done | 2026-04-01 | `e26821b`, `1458a90` | Topology/rules parsing and runtime derivation are in place; standalone rules now report root-relative validation paths while embedded topology rules keep `rules.*` paths. |
 | PLN-007 | Topology Primitives and TAP Reconciliation | done | 2026-04-01 | `d83aba1`, `aa59a77`, `1458a90` | Controller-owned topology lifecycle and topology API/CLI commands are in place; destroy now returns the controller to a healthy no-topology steady state. |
 | PLN-008 | Datapath EAL, Ports, and Pass-Through Loop | done | 2026-04-15 | `4708907`, `e6441db`, `7f7f514`, `d0d29d9`, `d8483bc`, `eff7ddb` | controller-to-daemon runtime plumbing, real DPDK EAL/TAP startup, the single-core forwarding loop, and controller-driven end-to-end traffic verification are all in place |
-| PLN-009 | Datapath Status, Stats, and User Surface | in progress | 2026-04-15 | `a27720c`, `<pending>` | read-only status/stats plus the `reset_stats` write path are in place through IPC, controller routes, and the CLI; pause/resume and shutdown remain |
+| PLN-009 | Datapath Status, Stats, and User Surface | in progress | 2026-04-15 | `a27720c`, `a052beb` | read-only status/stats plus the `reset_stats` write path are in place through IPC, controller routes, and the CLI; pause/resume and shutdown remain |
 | PLN-010 | Rules Engine and Atomic Ruleset Replacement | not started | 2026-03-31 |  |  |
 | PLN-011 | Capture, Scenarios, and Metrics | not started | 2026-03-31 |  |  |
 | PLN-012 | Tests, Packaging, Docs, and Release Polish | not started | 2026-03-31 |  |  |
@@ -1021,7 +1021,7 @@ Entries are append-only and ordered so session history can be reconstructed with
 - Next step:
   - add pause/resume end to end, then land shutdown semantics on top of the same IPC/controller/CLI surface
 - Commit:
-  - `<pending>`
+  - `a052beb` `pln-009: add the reset_stats write path`
 
 ## Read Before Continuing
 
