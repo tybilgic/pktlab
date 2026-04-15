@@ -49,6 +49,7 @@ def wait_for_socket(socket_path: pathlib.Path, proc: subprocess.Popen[str]) -> N
 
 def main() -> int:
     executable = pathlib.Path(sys.argv[1]).resolve()
+    health_state: dict[str, object] | None = None
 
     with tempfile.TemporaryDirectory(prefix="pktlab-dpdkd-") as tmpdir:
         socket_path = pathlib.Path(tmpdir) / "dpdkd.sock"
@@ -140,6 +141,11 @@ def main() -> int:
                 proc.kill()
                 proc.wait(timeout=5)
 
+    assert health_state is not None
+    print(
+        "ok: dpdkd IPC smoke passed "
+        f"(state={health_state['state']}, ports_ready={health_state['ports_ready']})"
+    )
     return 0
 
 

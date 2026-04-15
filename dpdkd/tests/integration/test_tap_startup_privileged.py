@@ -203,6 +203,7 @@ def main() -> int:
     finally:
         restore_hugepages(reservation)
 
+    print("ok: privileged datapath TAP startup smoke passed")
     return 0
 
 
