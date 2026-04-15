@@ -1,4 +1,4 @@
-"""Integration test for the Python datapath client against the C stub daemon."""
+"""Integration test for the Python datapath client against the C datapath daemon."""
 
 from __future__ import annotations
 
@@ -78,9 +78,17 @@ class DpdkClientStubIntegrationTests(unittest.TestCase):
                 health = client.get_health()
                 self.assertTrue(health.ok)
                 self.assertEqual(health.request_id, "req-it-3")
-                self.assertEqual(health.unwrap().health.state, "running")
-                self.assertFalse(health.unwrap().health.ports_ready)
-                self.assertFalse(health.unwrap().health.paused)
+                health_state = health.unwrap().health
+                self.assertIn(health_state.state, {"running", "degraded"})
+                self.assertFalse(health_state.ports_ready)
+                self.assertFalse(health_state.paused)
+                if health_state.state == "degraded":
+                    self.assertTrue(
+                        any(
+                            marker in health_state.message
+                            for marker in ("need root/CAP_NET_ADMIN", "libdpdk not available")
+                        )
+                    )
             finally:
                 proc.terminate()
                 try:

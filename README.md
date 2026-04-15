@@ -36,14 +36,16 @@ Implemented today:
 - third `PLN-008` forwarding slice: `pktlab-dpdkd` now includes bounded parser/actions modules,
   a bidirectional single-core pass-through loop, and an opt-in privileged forwarding smoke test
   for source -> datapath -> sink packet traversal
+- final `PLN-008` verification slice: an opt-in privileged controller-runtime smoke now applies a
+  real topology, supervises `pktlab-dpdkd` inside the datapath namespace, and verifies end-to-end
+  source -> datapath -> sink traffic through the controller-managed path
 
 Not implemented yet:
 
+- datapath status/stats IPC surface and controller/CLI visibility work from `PLN-009`
 - rules engine
-- controller-driven live end-to-end traffic verification through topology apply; the datapath now
-  has a direct privileged forwarding smoke, but the controller-driven traffic path is still pending
 
-The current implementation baseline covers `PLN-001` through `PLN-007`. Progress history and the
+The current implementation baseline covers `PLN-001` through `PLN-008`. Progress history and the
 active ticket live in [docs/progress.md](docs/progress.md).
 
 ## README Policy
@@ -120,7 +122,6 @@ Build note:
 - if `libdpdk.pc` is missing on the host, Meson warns and builds the current non-DPDK fallback path
 - that fallback still supports the controller-facing runtime arguments and the existing IPC tests,
   but the daemon reports `degraded` and does not create TAP PMD interfaces
-- `PLN-008` is not complete until the controller-driven end-to-end traffic path is verified
 
 Sanity-check the current Python tree:
 
@@ -156,6 +157,14 @@ Run the privileged datapath forwarding smoke path explicitly:
 sudo env PKTLAB_RUN_PRIVILEGED_DPDKD_FORWARDING_SMOKE=1 \
   python3 dpdkd/tests/integration/test_forwarding_privileged.py \
   build/dpdkd/pktlab-dpdkd
+```
+
+Run the privileged controller-driven forwarding smoke path explicitly:
+
+```sh
+sudo env PKTLAB_RUN_PRIVILEGED_CONTROLLER_FORWARDING_SMOKE=1 \
+  .venv/bin/python -m unittest discover -s ctrld/tests/integration -t ctrld \
+  -p 'test_controller_runtime_forwarding_privileged.py' -v
 ```
 
 Run the controller test discovery:
@@ -203,6 +212,11 @@ Controller test note:
   move packets bidirectionally between root-backed source and sink namespaces through `dtap0` and
   `dtap1`; it uses the same temporary hugepage-reservation model as the TAP-startup smoke and is
   now verified on a root-capable host
+- the privileged controller-driven forwarding smoke is also opt-in and verifies the full
+  controller-managed flow: `ControllerRuntime.start()`, topology apply, supervised namespaced
+  `pktlab-dpdkd`, TAP reconciliation, source -> datapath -> sink traffic, and topology destroy;
+  it provisions only the hugepages needed for its own run and is now verified on a root-capable
+  host
 
 Optional contract sanity checks:
 
@@ -263,7 +277,7 @@ Controller runtime notes:
 - topology apply now passes the controller-derived runtime profile into `pktlab-dpdkd`, including
   `lcores`, `hugepages_mb`, queue sizes, mempool size, and ingress/egress TAP names
 - on root-capable hosts with `libdpdk` present, `pktlab-dpdkd` can now create `dtap0` and `dtap1`
-  for controller TAP reconciliation; packet forwarding itself still waits on the pass-through loop
+  for controller TAP reconciliation and forward packets across the controller-managed topology
 - local development should usually pass `--dpdkd-socket-path /tmp/...` unless `/run/pktlab/` is
   already provisioned and writable
 - live topology apply/destroy requires the controller process to have the privileges needed for
@@ -278,9 +292,10 @@ As a user:
 - treat the repo as an implementation baseline, not a complete packet-processing lab yet
 - use `pktlab-ctrld` plus `pktlabctl status` to exercise the first complete control path
 - treat `pktlabctl topology apply -f <file>` and `pktlabctl topology destroy` as implemented
-  control-plane surface, but not yet a live datapath workflow; a real host run still waits on the
-  TAP PMD datapath work in `PLN-008`
-- use `pktlab-dpdkd` directly only when validating datapath-side IPC behavior
+  control-plane surface; on a root-capable host with `libdpdk`, the controller-managed datapath
+  workflow is now verified end to end
+- use `pktlab-dpdkd` directly when validating datapath-side IPC, TAP startup, or forwarding
+  behavior in isolation from the controller
 - use the schemas in `schemas/` as the current contract reference
 
 As a developer:
@@ -323,4 +338,4 @@ from pktlab_ctrld.config import (
 
 ## Current Next Step
 
-Finish `PLN-008`: add the single-core pass-through loop, then verify real traffic crosses the lab.
+Start `PLN-009`: expose datapath status and stats through IPC, the controller API, and the CLI.

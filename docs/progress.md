@@ -3,9 +3,9 @@
 ## Current Focus
 
 - Active milestone: `M4`
-- Active ticket: `PLN-008`
-- Overall state: `PLN-008` is in progress with real DPDK EAL startup, TAP PMD bring-up, and the single-core forwarding loop verified on a root-capable host; the remaining gap is controller-driven end-to-end traffic verification
-- Latest progress entry: `PRG-026`
+- Active ticket: `PLN-009`
+- Overall state: `PLN-008` is done; the controller-managed end-to-end forwarding path is now verified on a root-capable host, and the next work is `PLN-009` status/stats surfacing
+- Latest progress entry: `PRG-027`
 
 ## Ticket Status
 
@@ -18,7 +18,7 @@
 | PLN-005 | Controller Bootstrap, Health API, and CLI Status | done | 2026-04-01 | `012be4d`, `fc08760` | Controller supervision, `/health`, `pktlabctl status`, and integration coverage are in place. |
 | PLN-006 | Config Parsing, Validation, and Effective Runtime Policy | done | 2026-04-01 | `e26821b`, `1458a90` | Topology/rules parsing and runtime derivation are in place; standalone rules now report root-relative validation paths while embedded topology rules keep `rules.*` paths. |
 | PLN-007 | Topology Primitives and TAP Reconciliation | done | 2026-04-01 | `d83aba1`, `aa59a77`, `1458a90` | Controller-owned topology lifecycle and topology API/CLI commands are in place; destroy now returns the controller to a healthy no-topology steady state. |
-| PLN-008 | Datapath EAL, Ports, and Pass-Through Loop | in progress | 2026-04-15 | `4708907`, `e6441db`, `7f7f514`, `d0d29d9`, `d8483bc` | controller-to-daemon runtime plumbing, real DPDK EAL/TAP startup, and the single-core forwarding loop are now in place and the direct root-backed forwarding smoke has passed; the remaining work is controller-driven end-to-end traffic verification |
+| PLN-008 | Datapath EAL, Ports, and Pass-Through Loop | done | 2026-04-15 | `4708907`, `e6441db`, `7f7f514`, `d0d29d9`, `d8483bc` | controller-to-daemon runtime plumbing, real DPDK EAL/TAP startup, the single-core forwarding loop, and controller-driven end-to-end traffic verification are all in place |
 | PLN-009 | Datapath Status, Stats, and User Surface | not started | 2026-03-31 |  |  |
 | PLN-010 | Rules Engine and Atomic Ruleset Replacement | not started | 2026-03-31 |  |  |
 | PLN-011 | Capture, Scenarios, and Metrics | not started | 2026-03-31 |  |  |
@@ -881,6 +881,37 @@ Entries are append-only and ordered so session history can be reconstructed with
   - wire and verify a real controller-driven topology apply plus source -> datapath -> sink traffic smoke
 - Commit:
   - `d8483bc` `dpdkd: add the single-core pass-through forwarding loop`
+
+### PRG-027 | 2026-04-15
+
+- Ticket: `PLN-008`
+- Status change: single-core forwarding loop implemented and direct privileged forwarding smoke verified on a root-capable host -> `PLN-008` complete with controller-driven end-to-end traffic verified on a root-capable host
+- Implemented:
+  - added an opt-in privileged controller-runtime forwarding smoke in `ctrld/tests/integration/test_controller_runtime_forwarding_privileged.py` that starts the real controller runtime, applies a real topology, supervises `pktlab-dpdkd` inside the datapath namespace, verifies TAP reconciliation, pings source -> datapath -> sink in both directions, and destroys the topology cleanly
+  - shaped that smoke topology as an L2 pass-through lab, leaving the controller-managed middle links unaddressed and assigning same-subnet endpoint addresses after apply so the test exercises the forwarding datapath itself rather than routed host behavior
+  - aligned the existing controller/datapath integration assertions with the current unprivileged daemon contract: IPC stays reachable, but the datapath may correctly report `degraded` when `libdpdk` is present but the process lacks root or `CAP_NET_ADMIN`
+  - updated the README and `PLN-008` ticket status so the documented baseline reflects that controller-driven end-to-end traffic verification is now complete
+- Files touched:
+  - `ctrld/tests/integration/test_controller_runtime_forwarding_privileged.py`
+  - `ctrld/tests/integration/test_controller_health_api.py`
+  - `ctrld/tests/integration/test_dpdk_client_stub.py`
+  - `README.md`
+  - `docs/progress.md`
+  - `docs/tickets/PLN-008-datapath-eal-ports-and-pass-through-loop.md`
+- Verification:
+  - ran `.venv/bin/python -m compileall ctrld/pktlab_ctrld ctrld/tests`
+  - ran `.venv/bin/python -m unittest discover -s ctrld/tests -t ctrld -v`
+  - validated the smoke topology shape and effective runtime profile with `.venv/bin/python -c "...validate_topology_config(load_topology_config(...))..."`
+  - reran `sudo env PKTLAB_RUN_PRIVILEGED_CONTROLLER_FORWARDING_SMOKE=1 .venv/bin/python -m unittest discover -s ctrld/tests/integration -t ctrld -p 'test_controller_runtime_forwarding_privileged.py' -v` on a root-capable host and confirmed it completed with `ok: privileged controller-driven forwarding smoke passed`
+- Remaining:
+  - no remaining work within `PLN-008`
+- Risks or blockers:
+  - the privileged controller-driven smoke provisions only the hugepages needed for its own run; normal controller-managed or manual datapath runs still need the configured hugepage budget to be available on the host
+  - the smoke intentionally exercises the runtime/topology path directly rather than going through the FastAPI lifespan, so it isolates datapath and topology behavior without adding HTTP test noise
+- Next step:
+  - start `PLN-009` and expose datapath status and stats through IPC, the controller API, and the CLI
+- Commit:
+  - `<pending>` `ctrld: verify controller-driven end-to-end forwarding`
 
 ## Read Before Continuing
 

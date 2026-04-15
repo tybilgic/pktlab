@@ -16,10 +16,14 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
 DEFAULT_DPDKD_BINARY = REPO_ROOT / "build" / "dpdkd" / "pktlab-dpdkd"
 
 
+def _is_expected_degraded_datapath_message(message: str) -> bool:
+    return any(marker in message for marker in ("need root/CAP_NET_ADMIN", "libdpdk not available"))
+
+
 class ControllerHealthApiIntegrationTests(unittest.TestCase):
     """Verify the controller supervises the datapath and exposes `/health`."""
 
-    def test_health_endpoint_reports_running_controller_and_datapath(self) -> None:
+    def test_health_endpoint_reports_controller_and_datapath_state_consistently(self) -> None:
         if not DEFAULT_DPDKD_BINARY.exists():
             raise unittest.SkipTest(
                 f"dpdkd stub binary is missing; build it first at {DEFAULT_DPDKD_BINARY}"
@@ -47,14 +51,19 @@ class ControllerHealthApiIntegrationTests(unittest.TestCase):
                 self.assertEqual(response.status_code, 200)
 
                 payload = response.json()
+                datapath_state = payload["datapath"]["state"]
                 self.assertEqual(payload["controller"]["service"], "pktlab-ctrld")
-                self.assertEqual(payload["controller"]["state"], "running")
                 self.assertEqual(payload["datapath"]["service"], "pktlab-dpdkd")
                 self.assertTrue(payload["datapath"]["managed"])
                 self.assertTrue(payload["datapath"]["reachable"])
-                self.assertEqual(payload["datapath"]["state"], "running")
+                self.assertIn(datapath_state, {"running", "degraded"})
                 self.assertFalse(payload["datapath"]["ports_ready"])
                 self.assertFalse(payload["datapath"]["paused"])
+                if datapath_state == "running":
+                    self.assertEqual(payload["controller"]["state"], "running")
+                else:
+                    self.assertEqual(payload["controller"]["state"], "degraded")
+                    self.assertTrue(_is_expected_degraded_datapath_message(payload["datapath"]["message"]))
 
 
 if __name__ == "__main__":
