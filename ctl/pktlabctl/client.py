@@ -106,6 +106,15 @@ class DatapathStatsResetResponseModel(BaseModel):
     message: str = Field(min_length=1)
 
 
+class DatapathControlResponseModel(BaseModel):
+    """Typed `/datapath/pause` and `/datapath/resume` responses used by the CLI."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    datapath: DatapathStatusModel
+    message: str = Field(min_length=1)
+
+
 class TopologyOperationResponseModel(BaseModel):
     """Typed topology lifecycle response used by the CLI."""
 
@@ -187,6 +196,28 @@ class ControllerClient:
                 f"controller datapath stats-reset response did not match the expected schema: {exc}"
             ) from exc
 
+    def pause_datapath(self) -> DatapathControlResponseModel:
+        """Pause datapath forwarding through the controller API."""
+
+        response = self._request_json("POST", "/datapath/pause", json_body={})
+        try:
+            return DatapathControlResponseModel.model_validate(response)
+        except ValidationError as exc:
+            raise ControllerClientError(
+                f"controller datapath pause response did not match the expected schema: {exc}"
+            ) from exc
+
+    def resume_datapath(self) -> DatapathControlResponseModel:
+        """Resume datapath forwarding through the controller API."""
+
+        response = self._request_json("POST", "/datapath/resume", json_body={})
+        try:
+            return DatapathControlResponseModel.model_validate(response)
+        except ValidationError as exc:
+            raise ControllerClientError(
+                f"controller datapath resume response did not match the expected schema: {exc}"
+            ) from exc
+
     def apply_topology(self, config_path: str) -> TopologyOperationResponseModel:
         """Request topology apply through the controller API."""
 
@@ -252,6 +283,7 @@ __all__ = [
     "ControllerClient",
     "ControllerClientError",
     "ControllerStatusModel",
+    "DatapathControlResponseModel",
     "DatapathPortModel",
     "DatapathStatusModel",
     "DatapathStatusResponseModel",

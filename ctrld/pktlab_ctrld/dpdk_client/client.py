@@ -17,11 +17,13 @@ from .models import (
     AckPayload,
     CommandResult,
     GetPortsRequest,
+    PauseDatapathRequest,
     ResetStatsRequest,
     GetStatsRequest,
     GetHealthRequest,
     GetVersionRequest,
     PortsPayload,
+    ResumeDatapathRequest,
     StatsPayload,
     HealthPayload,
     PingRequest,
@@ -87,6 +89,18 @@ class DpdkClient:
         """Reset the current datapath counters."""
 
         request = ResetStatsRequest(id=self._request_id_factory())
+        return self._typed_call(request, AckPayload)
+
+    def pause_datapath(self) -> CommandResult[AckPayload]:
+        """Pause the current datapath forwarding loop."""
+
+        request = PauseDatapathRequest(id=self._request_id_factory())
+        return self._typed_call(request, AckPayload)
+
+    def resume_datapath(self) -> CommandResult[AckPayload]:
+        """Resume the current datapath forwarding loop."""
+
+        request = ResumeDatapathRequest(id=self._request_id_factory())
         return self._typed_call(request, AckPayload)
 
     def _typed_call(

@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 from pktlab_ctrld.error import ErrorCode, PktlabError
 
 from .models import (
+    DatapathControlResponseModel,
     DatapathStatsResetResponseModel,
     DatapathStatsResponseModel,
     DatapathStatusResponseModel,
@@ -49,6 +50,30 @@ def reset_datapath_stats(request: Request) -> DatapathStatsResetResponseModel:
     except PktlabError as exc:
         raise _to_http_exception(exc) from exc
     return DatapathStatsResetResponseModel.from_result(result)
+
+
+@router.post("/pause", response_model=DatapathControlResponseModel)
+def pause_datapath(request: Request) -> DatapathControlResponseModel:
+    """Pause the datapath forwarding loop."""
+
+    controller = request.app.state.controller
+    try:
+        result = controller.pause_datapath()
+    except PktlabError as exc:
+        raise _to_http_exception(exc) from exc
+    return DatapathControlResponseModel.from_result(result)
+
+
+@router.post("/resume", response_model=DatapathControlResponseModel)
+def resume_datapath(request: Request) -> DatapathControlResponseModel:
+    """Resume the datapath forwarding loop."""
+
+    controller = request.app.state.controller
+    try:
+        result = controller.resume_datapath()
+    except PktlabError as exc:
+        raise _to_http_exception(exc) from exc
+    return DatapathControlResponseModel.from_result(result)
 
 
 def _to_http_exception(error: PktlabError) -> HTTPException:

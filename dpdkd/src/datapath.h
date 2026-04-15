@@ -42,6 +42,7 @@ struct pktlab_datapath {
     pthread_t worker_thread;
     pthread_mutex_t worker_lock;
     pthread_cond_t worker_cond;
+    atomic_bool paused;
     atomic_bool stop_requested;
     bool configured;
     bool started;
@@ -82,5 +83,16 @@ void pktlab_datapath_stats_snapshot(
     struct dp_stats_snapshot *snapshot
 );
 void pktlab_datapath_reset_stats(struct pktlab_datapath *datapath);
+int pktlab_datapath_pause(
+    struct pktlab_datapath *datapath,
+    bool *changed,
+    struct pktlab_dpdkd_error *error
+);
+int pktlab_datapath_resume(
+    struct pktlab_datapath *datapath,
+    bool *changed,
+    struct pktlab_dpdkd_error *error
+);
+bool pktlab_datapath_paused(const struct pktlab_datapath *datapath);
 
 #endif /* PKTLAB_DPDKD_DATAPATH_H */

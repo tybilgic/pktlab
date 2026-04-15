@@ -146,6 +146,40 @@ class DpdkClientUnitTests(unittest.TestCase):
         self.assertTrue(result.ok)
         self.assertEqual(result.unwrap().message, "datapath counters reset")
 
+    def test_pause_datapath_returns_typed_success_result(self) -> None:
+        client = DpdkClient("/tmp/pktlab.sock", request_id_factory=lambda: "req-client-7")
+
+        with mock.patch.object(
+            client,
+            "_exchange",
+            return_value=RawSuccessEnvelope(
+                id="req-client-7",
+                ok=True,
+                payload={"message": "datapath forwarding loop paused"},
+            ),
+        ):
+            result = client.pause_datapath()
+
+        self.assertTrue(result.ok)
+        self.assertEqual(result.unwrap().message, "datapath forwarding loop paused")
+
+    def test_resume_datapath_returns_typed_success_result(self) -> None:
+        client = DpdkClient("/tmp/pktlab.sock", request_id_factory=lambda: "req-client-8")
+
+        with mock.patch.object(
+            client,
+            "_exchange",
+            return_value=RawSuccessEnvelope(
+                id="req-client-8",
+                ok=True,
+                payload={"message": "datapath forwarding loop resumed"},
+            ),
+        ):
+            result = client.resume_datapath()
+
+        self.assertTrue(result.ok)
+        self.assertEqual(result.unwrap().message, "datapath forwarding loop resumed")
+
 
 if __name__ == "__main__":
     unittest.main()

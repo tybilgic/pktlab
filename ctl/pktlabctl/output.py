@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 from .client import (
+    DatapathControlResponseModel,
     DatapathStatsResetResponseModel,
     DatapathStatsResponseModel,
     DatapathStatusResponseModel,
@@ -84,6 +85,19 @@ def render_stats_reset(payload: DatapathStatsResetResponseModel, *, json_output:
     return render_human_stats_reset(payload)
 
 
+def render_datapath_control(
+    action: str,
+    payload: DatapathControlResponseModel,
+    *,
+    json_output: bool,
+) -> str:
+    """Render a datapath control result for CLI output."""
+
+    if json_output:
+        return json.dumps(payload.model_dump(mode="json"), indent=2, sort_keys=True)
+    return render_human_datapath_control(action, payload)
+
+
 def render_human_stats_reset(payload: DatapathStatsResetResponseModel) -> str:
     """Format a datapath stats reset result as a readable multi-line report."""
 
@@ -95,6 +109,23 @@ def render_human_stats_reset(payload: DatapathStatsResetResponseModel) -> str:
             heading="post-reset counters",
         ).splitlines()
     )
+    return "\n".join(lines)
+
+
+def render_human_datapath_control(action: str, payload: DatapathControlResponseModel) -> str:
+    """Format a datapath control result as a readable multi-line report."""
+
+    datapath = payload.datapath
+    lines = [
+        f"datapath {action}: {payload.message}",
+        f"  state: {datapath.state if datapath.state is not None else 'unknown'}",
+        f"  socket: {datapath.socket_path}",
+        f"  reachable: {'yes' if datapath.reachable else 'no'}",
+        f"  ports_ready: {'yes' if datapath.ports_ready else 'no'}",
+        f"  paused: {'yes' if datapath.paused else 'no'}",
+    ]
+    if datapath.message:
+        lines.append(f"  message: {datapath.message}")
     return "\n".join(lines)
 
 
@@ -146,6 +177,8 @@ __all__ = [
     "render_human_stats",
     "render_human_stats_reset",
     "render_human_status",
+    "render_human_datapath_control",
+    "render_datapath_control",
     "render_stats",
     "render_stats_reset",
     "render_status",

@@ -159,6 +159,30 @@ class DpdkdSupervisor:
                 )
             return self._require_client_locked().reset_stats()
 
+    def pause_datapath(self) -> CommandResult[AckPayload]:
+        """Pause the live datapath forwarding loop over IPC."""
+
+        with self._lock:
+            status = self._status_locked()
+            if not status.reachable:
+                raise DatapathTransportError(
+                    "datapath IPC is not reachable for pause",
+                    context={"socket_path": self.config.socket_path},
+                )
+            return self._require_client_locked().pause_datapath()
+
+    def resume_datapath(self) -> CommandResult[AckPayload]:
+        """Resume the live datapath forwarding loop over IPC."""
+
+        with self._lock:
+            status = self._status_locked()
+            if not status.reachable:
+                raise DatapathTransportError(
+                    "datapath IPC is not reachable for resume",
+                    context={"socket_path": self.config.socket_path},
+                )
+            return self._require_client_locked().resume_datapath()
+
     def stop(self) -> None:
         """Terminate the datapath subprocess if it is running."""
 

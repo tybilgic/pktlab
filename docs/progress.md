@@ -4,8 +4,8 @@
 
 - Active milestone: `M4`
 - Active ticket: `PLN-009`
-- Overall state: `PLN-008` is done; `PLN-009` now has read-only status/stats plus the `reset_stats` write path in place through IPC, the controller API, and the CLI; pause/resume and shutdown remain
-- Latest progress entry: `PRG-029`
+- Overall state: `PLN-008` is done; `PLN-009` now has read-only status/stats plus `reset_stats` and pause/resume write paths in place through IPC, the controller API, and the CLI; only shutdown remains
+- Latest progress entry: `PRG-030`
 
 ## Ticket Status
 
@@ -19,7 +19,7 @@
 | PLN-006 | Config Parsing, Validation, and Effective Runtime Policy | done | 2026-04-01 | `e26821b`, `1458a90` | Topology/rules parsing and runtime derivation are in place; standalone rules now report root-relative validation paths while embedded topology rules keep `rules.*` paths. |
 | PLN-007 | Topology Primitives and TAP Reconciliation | done | 2026-04-01 | `d83aba1`, `aa59a77`, `1458a90` | Controller-owned topology lifecycle and topology API/CLI commands are in place; destroy now returns the controller to a healthy no-topology steady state. |
 | PLN-008 | Datapath EAL, Ports, and Pass-Through Loop | done | 2026-04-15 | `4708907`, `e6441db`, `7f7f514`, `d0d29d9`, `d8483bc`, `eff7ddb` | controller-to-daemon runtime plumbing, real DPDK EAL/TAP startup, the single-core forwarding loop, and controller-driven end-to-end traffic verification are all in place |
-| PLN-009 | Datapath Status, Stats, and User Surface | in progress | 2026-04-15 | `a27720c`, `a052beb` | read-only status/stats plus the `reset_stats` write path are in place through IPC, controller routes, and the CLI; pause/resume and shutdown remain |
+| PLN-009 | Datapath Status, Stats, and User Surface | in progress | 2026-04-16 | `a27720c`, `a052beb`, `<pending>` | read-only status/stats plus the `reset_stats` and pause/resume write paths are in place through IPC, controller routes, and the CLI; only shutdown remains |
 | PLN-010 | Rules Engine and Atomic Ruleset Replacement | not started | 2026-03-31 |  |  |
 | PLN-011 | Capture, Scenarios, and Metrics | not started | 2026-03-31 |  |  |
 | PLN-012 | Tests, Packaging, Docs, and Release Polish | not started | 2026-03-31 |  |  |
@@ -1022,6 +1022,61 @@ Entries are append-only and ordered so session history can be reconstructed with
   - add pause/resume end to end, then land shutdown semantics on top of the same IPC/controller/CLI surface
 - Commit:
   - `a052beb` `pln-009: add the reset_stats write path`
+
+### PRG-030 | 2026-04-16
+
+- Ticket: `PLN-009`
+- Status change: `in progress` -> `in progress`
+- Implemented:
+  - added `pause_datapath` and `resume_datapath` IPC commands to `pktlab-dpdkd`
+  - made the forwarding loop honor a real paused state and exposed paused/running transitions through datapath health
+  - exposed `POST /datapath/pause` and `POST /datapath/resume` through `pktlab-ctrld`
+  - added `pktlabctl datapath pause` and `pktlabctl datapath resume`
+  - added root-backed privileged verification that pause stops forwarding, health reports `paused`, and resume restores traffic
+  - extended the checked-in controller API contract, README, and `PLN-009` ticket for the pause/resume slice
+- Files touched:
+  - `dpdkd/src/daemon.c`
+  - `dpdkd/src/datapath.c`
+  - `dpdkd/src/datapath.h`
+  - `dpdkd/tests/integration/test_ipc_smoke.py`
+  - `dpdkd/tests/integration/test_pause_resume_privileged.py`
+  - `ctrld/pktlab_ctrld/app.py`
+  - `ctrld/pktlab_ctrld/api/models.py`
+  - `ctrld/pktlab_ctrld/api/routes_datapath.py`
+  - `ctrld/pktlab_ctrld/dpdk_client/client.py`
+  - `ctrld/pktlab_ctrld/dpdk_client/models.py`
+  - `ctrld/pktlab_ctrld/process/supervisor.py`
+  - `ctrld/tests/integration/test_controller_health_api.py`
+  - `ctrld/tests/integration/test_dpdk_client_stub.py`
+  - `ctrld/tests/unit/test_controller_runtime.py`
+  - `ctrld/tests/unit/test_dpdk_client.py`
+  - `ctl/pktlabctl/cli.py`
+  - `ctl/pktlabctl/client.py`
+  - `ctl/pktlabctl/commands/datapath.py`
+  - `ctl/pktlabctl/output.py`
+  - `ctl/tests/integration/test_datapath_command.py`
+  - `README.md`
+  - `docs/tickets/PLN-009-datapath-status-stats-and-user-surface.md`
+  - `docs/progress.md`
+  - `schemas/ctrld-api.openapi.yaml`
+- Verification:
+  - ran `meson compile -C build/dpdkd`
+  - ran `meson test -C build/dpdkd --print-errorlogs`
+  - ran `python3 dpdkd/tests/integration/test_ipc_smoke.py build/dpdkd/pktlab-dpdkd`
+  - ran `python3 -m compileall dpdkd/tests`
+  - ran `.venv/bin/python -m compileall ctrld/pktlab_ctrld ctrld/tests ctl/pktlabctl ctl/tests`
+  - ran `.venv/bin/python -m unittest discover -s ctrld/tests -t ctrld -v`
+  - ran `.venv/bin/python -m unittest discover -s ctl/tests -t ctl -v`
+  - reran `sudo env PKTLAB_RUN_PRIVILEGED_DPDKD_PAUSE_SMOKE=1 python3 dpdkd/tests/integration/test_pause_resume_privileged.py build/dpdkd/pktlab-dpdkd` on a root-capable host and confirmed it completed with `ok: privileged datapath pause/resume smoke passed`
+- Remaining:
+  - implement shutdown semantics inside `PLN-009`
+- Risks or blockers:
+  - the paused state is now part of the public `/datapath/*` surface, so the remaining shutdown slice should preserve the existing `DatapathHealth` shape rather than introducing a parallel control-state model
+  - `get_stats`, `reset_stats`, and pause/resume verification still report `rule_hits: {}` because the rules engine remains future work under `PLN-010`
+- Next step:
+  - add shutdown semantics end to end on top of the same IPC/controller/CLI surface and then close `PLN-009`
+- Commit:
+  - `<pending>`
 
 ## Read Before Continuing
 

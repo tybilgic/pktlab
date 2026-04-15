@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from threading import RLock
 
@@ -74,6 +75,14 @@ class DatapathStatsResetResult:
 
     datapath_status: DatapathProcessStatus
     stats: DatapathStatsModel
+    message: str
+
+
+@dataclass(frozen=True, slots=True)
+class DatapathControlResult:
+    """Controller-visible datapath control result."""
+
+    datapath_status: DatapathProcessStatus
     message: str
 
 
@@ -356,6 +365,50 @@ class ControllerRuntime:
                 datapath_status=datapath_status,
                 stats=stats_result.unwrap().stats,
                 message=reset_result.unwrap().message,
+            )
+
+    def pause_datapath(self) -> DatapathControlResult:
+        """Pause the live datapath forwarding loop."""
+
+        return self._run_datapath_control_command(
+            lambda supervisor: supervisor.pause_datapath()
+        )
+
+    def resume_datapath(self) -> DatapathControlResult:
+        """Resume the live datapath forwarding loop."""
+
+        return self._run_datapath_control_command(
+            lambda supervisor: supervisor.resume_datapath()
+        )
+
+    def _run_datapath_control_command(
+        self,
+        command: Callable[[DpdkdSupervisor], object],
+    ) -> DatapathControlResult:
+        with self._lock:
+            if self._supervisor is None:
+                raise PktlabError(
+                    ErrorCode.STATE_CONFLICT,
+                    "controller is not supervising a datapath process",
+                )
+
+            control_result = command(self._supervisor)
+            if not control_result.ok:
+                raise self._pktlab_error_from_datapath_error(
+                    control_result.error.code,
+                    control_result.error.message,
+                )
+
+            datapath_status = self._current_datapath_status_locked()
+            self._observed_state = self._observed_from_datapath(
+                datapath_status,
+                topology_applied=self._observed_state.topology_applied,
+                effective_dpdk_config=self._observed_state.effective_dpdk_config,
+            )
+            self._recompute_controller_health(datapath_status)
+            return DatapathControlResult(
+                datapath_status=datapath_status,
+                message=control_result.unwrap().message,
             )
 
     def _recompute_controller_health(self, datapath_status: DatapathProcessStatus) -> None:

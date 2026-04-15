@@ -44,14 +44,17 @@ Implemented today:
   `pktlabctl` now shows live port status plus `stats show`
 - second `PLN-009` writable slice: `reset_stats` now works end to end through the daemon IPC,
   `POST /datapath/stats/reset`, and `pktlabctl stats reset`
+- third `PLN-009` writable slice: pause/resume now works end to end through the daemon IPC,
+  `POST /datapath/pause`, `POST /datapath/resume`, `pktlabctl datapath pause`, and
+  `pktlabctl datapath resume`, with a root-backed pause/resume smoke verified on a host with
+  DPDK TAP startup and forwarding enabled
 
 Not implemented yet:
 
-- the remaining writable datapath control actions from `PLN-009`: pause/resume and shutdown
-  semantics
+- the remaining writable datapath control action from `PLN-009`: shutdown semantics
 - rules engine
 
-The current implementation baseline covers `PLN-001` through `PLN-008` plus the first two
+The current implementation baseline covers `PLN-001` through `PLN-008` plus the first three
 `PLN-009` slices. Progress history and the active ticket live in [docs/progress.md](docs/progress.md).
 
 ## README Policy
@@ -165,6 +168,14 @@ sudo env PKTLAB_RUN_PRIVILEGED_DPDKD_FORWARDING_SMOKE=1 \
   build/dpdkd/pktlab-dpdkd
 ```
 
+Run the privileged datapath pause/resume smoke path explicitly:
+
+```sh
+sudo env PKTLAB_RUN_PRIVILEGED_DPDKD_PAUSE_SMOKE=1 \
+  python3 dpdkd/tests/integration/test_pause_resume_privileged.py \
+  build/dpdkd/pktlab-dpdkd
+```
+
 Run the privileged controller-driven forwarding smoke path explicitly:
 
 ```sh
@@ -218,6 +229,9 @@ Controller test note:
   move packets bidirectionally between root-backed source and sink namespaces through `dtap0` and
   `dtap1`; it uses the same temporary hugepage-reservation model as the TAP-startup smoke and is
   now verified on a root-capable host
+- the privileged datapath pause/resume smoke is also opt-in and verifies that the datapath
+  forwarding loop can be paused and resumed on a root-capable host, that health reports
+  `paused` explicitly while forwarding is stopped, and that packet forwarding resumes afterward
 - the privileged controller-driven forwarding smoke is also opt-in and verifies the full
   controller-managed flow: `ControllerRuntime.start()`, topology apply, supervised namespaced
   `pktlab-dpdkd`, TAP reconciliation, source -> datapath -> sink traffic, and topology destroy;
@@ -251,7 +265,7 @@ Runtime notes:
 - without those privileges, or without `libdpdk` at build time, the daemon still answers IPC but
   reports `degraded` and does not expose a forwarding fast path
 - the daemon handles `SIGINT` and `SIGTERM`
-- supported IPC commands: `ping`, `get_version`, `get_health`, `get_ports`, `get_stats`, `reset_stats`
+- supported IPC commands: `ping`, `get_version`, `get_health`, `get_ports`, `get_stats`, `reset_stats`, `pause_datapath`, and `resume_datapath`
 
 Run the controller with datapath supervision:
 
@@ -272,6 +286,10 @@ Query the controller through the CLI:
 .venv/bin/pktlabctl --controller-url http://127.0.0.1:8080 --json stats show
 .venv/bin/pktlabctl --controller-url http://127.0.0.1:8080 stats reset
 .venv/bin/pktlabctl --controller-url http://127.0.0.1:8080 --json stats reset
+.venv/bin/pktlabctl --controller-url http://127.0.0.1:8080 datapath pause
+.venv/bin/pktlabctl --controller-url http://127.0.0.1:8080 --json datapath pause
+.venv/bin/pktlabctl --controller-url http://127.0.0.1:8080 datapath resume
+.venv/bin/pktlabctl --controller-url http://127.0.0.1:8080 --json datapath resume
 .venv/bin/pktlabctl --controller-url http://127.0.0.1:8080 topology apply -f lab/topologies/linear.yaml
 .venv/bin/pktlabctl --controller-url http://127.0.0.1:8080 topology destroy
 ```
@@ -283,6 +301,8 @@ Controller runtime notes:
 - controller health is exposed at `GET /health`
 - live datapath status and counters are exposed at `GET /datapath/status` and `GET /datapath/stats`
 - datapath counters can be reset through `POST /datapath/stats/reset`
+- datapath forwarding can be paused and resumed through `POST /datapath/pause` and
+  `POST /datapath/resume`
 - `pktlabctl` talks only to the controller HTTP API, not to the datapath socket directly
 - topology apply will stop any currently supervised datapath instance and restart it inside the
   configured datapath namespace before TAP reconciliation
@@ -302,8 +322,9 @@ Controller runtime notes:
 As a user:
 
 - treat the repo as an implementation baseline, not a complete packet-processing lab yet
-- use `pktlab-ctrld` plus `pktlabctl status`, `pktlabctl stats show`, and `pktlabctl stats reset`
-  to inspect and manage the current control/datapath state through the controller
+- use `pktlab-ctrld` plus `pktlabctl status`, `pktlabctl stats show`, `pktlabctl stats reset`,
+  `pktlabctl datapath pause`, and `pktlabctl datapath resume` to inspect and manage the current
+  control/datapath state through the controller
 - treat `pktlabctl topology apply -f <file>` and `pktlabctl topology destroy` as implemented
   control-plane surface; on a root-capable host with `libdpdk`, the controller-managed datapath
   workflow is now verified end to end
@@ -351,5 +372,5 @@ from pktlab_ctrld.config import (
 
 ## Current Next Step
 
-Continue `PLN-009` with the remaining writable datapath controls: pause/resume and shutdown
-semantics surfaced consistently through IPC, the controller API, and the CLI.
+Finish `PLN-009` with the last writable datapath control: shutdown semantics surfaced
+consistently through IPC, the controller API, and the CLI.

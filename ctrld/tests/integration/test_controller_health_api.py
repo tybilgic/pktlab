@@ -97,6 +97,22 @@ class ControllerHealthApiIntegrationTests(unittest.TestCase):
                 self.assertEqual(reset_payload["stats"]["tx_packets"], 0)
                 self.assertEqual(reset_payload["stats"]["drop_packets"], 0)
 
+                pause_response = client.post("/datapath/pause", json={})
+                self.assertEqual(pause_response.status_code, 409)
+                pause_payload = pause_response.json()
+                self.assertEqual(
+                    pause_payload["detail"]["message"],
+                    "datapath forwarding loop is not active",
+                )
+
+                resume_response = client.post("/datapath/resume", json={})
+                self.assertEqual(resume_response.status_code, 409)
+                resume_payload = resume_response.json()
+                self.assertEqual(
+                    resume_payload["detail"]["message"],
+                    "datapath forwarding loop is not active",
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

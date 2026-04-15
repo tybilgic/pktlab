@@ -145,9 +145,51 @@ def main() -> int:
                 "payload": {"message": "datapath counters reset"},
             }
 
+            pause = send_request(
+                socket_path,
+                json.dumps({"id": "req-7", "cmd": "pause_datapath", "payload": {}}).encode("utf-8"),
+            )
+            if health_state["ports_ready"] is True:
+                assert pause == {
+                    "id": "req-7",
+                    "ok": True,
+                    "payload": {"message": "datapath forwarding loop paused"},
+                }
+                paused_health = send_request(
+                    socket_path,
+                    json.dumps({"id": "req-8", "cmd": "get_health", "payload": {}}).encode("utf-8"),
+                )
+                assert paused_health["ok"] is True
+                assert paused_health["payload"]["health"]["state"] == "paused"
+                assert paused_health["payload"]["health"]["paused"] is True
+
+                resume = send_request(
+                    socket_path,
+                    json.dumps({"id": "req-9", "cmd": "resume_datapath", "payload": {}}).encode("utf-8"),
+                )
+                assert resume == {
+                    "id": "req-9",
+                    "ok": True,
+                    "payload": {"message": "datapath forwarding loop resumed"},
+                }
+            else:
+                assert pause["ok"] is False
+                assert pause["id"] == "req-7"
+                assert pause["error"]["code"] == "STATE_CONFLICT"
+                assert pause["error"]["message"] == "datapath forwarding loop is not active"
+
+                resume = send_request(
+                    socket_path,
+                    json.dumps({"id": "req-8", "cmd": "resume_datapath", "payload": {}}).encode("utf-8"),
+                )
+                assert resume["ok"] is False
+                assert resume["id"] == "req-8"
+                assert resume["error"]["code"] == "STATE_CONFLICT"
+                assert resume["error"]["message"] == "datapath forwarding loop is not active"
+
             malformed = send_request(
                 socket_path,
-                b'{"id":"req-7","cmd":"ping","payload":',
+                b'{"id":"req-10","cmd":"ping","payload":',
             )
             assert malformed["ok"] is False
             assert malformed["error"]["code"] == "INVALID_REQUEST"

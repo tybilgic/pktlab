@@ -95,6 +95,58 @@ class FakeSupervisor:
             socket_path=self._status.socket_path,
         )
 
+    def pause_datapath(self):
+        from pktlab_ctrld.dpdk_client.models import AckPayload, CommandResult
+
+        if self._status.health is not None:
+            self._status = DatapathProcessStatus(
+                managed=self._status.managed,
+                socket_path=self._status.socket_path,
+                pid=self._status.pid,
+                running=self._status.running,
+                reachable=self._status.reachable,
+                exit_code=self._status.exit_code,
+                last_error=self._status.last_error,
+                version=self._status.version,
+                health=self._status.health.model_copy(
+                    update={
+                        "state": "paused",
+                        "message": "datapath forwarding loop paused",
+                        "paused": True,
+                    }
+                ),
+            )
+        return CommandResult.success(
+            "req-pause",
+            AckPayload(message="datapath forwarding loop paused"),
+        )
+
+    def resume_datapath(self):
+        from pktlab_ctrld.dpdk_client.models import AckPayload, CommandResult
+
+        if self._status.health is not None:
+            self._status = DatapathProcessStatus(
+                managed=self._status.managed,
+                socket_path=self._status.socket_path,
+                pid=self._status.pid,
+                running=self._status.running,
+                reachable=self._status.reachable,
+                exit_code=self._status.exit_code,
+                last_error=self._status.last_error,
+                version=self._status.version,
+                health=self._status.health.model_copy(
+                    update={
+                        "state": "running",
+                        "message": "ready",
+                        "paused": False,
+                    }
+                ),
+            )
+        return CommandResult.success(
+            "req-resume",
+            AckPayload(message="datapath forwarding loop resumed"),
+        )
+
     def set_status(self, status: DatapathProcessStatus) -> None:
         self._status = status
 
@@ -375,6 +427,39 @@ class ControllerRuntimeTests(unittest.TestCase):
             snapshot.controller_message,
             "datapath process is running without an active topology",
         )
+
+    def test_pause_and_resume_datapath_refresh_controller_health(self) -> None:
+        supervisor = FakeSupervisor(status=running_datapath_status())
+        runtime = ControllerRuntime(
+            ControllerConfig(
+                datapath_binary="/bin/true",
+                datapath_socket_path="/tmp/pktlab.sock",
+            ),
+            supervisor=supervisor,
+        )
+
+        runtime.start()
+
+        paused = runtime.pause_datapath()
+        paused_snapshot = runtime.health_snapshot()
+        self.assertEqual(paused.message, "datapath forwarding loop paused")
+        self.assertEqual(paused.datapath_status.health.state, "paused")
+        self.assertTrue(paused.datapath_status.health.paused)
+        self.assertEqual(paused_snapshot.controller_state, "degraded")
+        self.assertEqual(
+            paused_snapshot.controller_message,
+            "datapath reported state paused: datapath forwarding loop paused",
+        )
+        self.assertEqual(paused_snapshot.observed_state.datapath_health, "paused")
+
+        resumed = runtime.resume_datapath()
+        resumed_snapshot = runtime.health_snapshot()
+        self.assertEqual(resumed.message, "datapath forwarding loop resumed")
+        self.assertEqual(resumed.datapath_status.health.state, "running")
+        self.assertFalse(resumed.datapath_status.health.paused)
+        self.assertEqual(resumed_snapshot.controller_state, "running")
+        self.assertEqual(resumed_snapshot.controller_message, "controller ready")
+        self.assertEqual(resumed_snapshot.observed_state.datapath_health, "running")
 
 
 if __name__ == "__main__":

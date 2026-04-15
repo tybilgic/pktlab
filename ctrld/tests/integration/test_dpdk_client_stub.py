@@ -13,6 +13,7 @@ IMPORT_ERROR: ModuleNotFoundError | None = None
 
 try:
     from pktlab_ctrld.dpdk_client.client import DpdkClient
+    from pktlab_ctrld.dpdk_client.models import DatapathErrorCode
 except ModuleNotFoundError as exc:  # pragma: no cover - environment-dependent
     if exc.name != "pydantic":
         raise
@@ -40,7 +41,7 @@ def wait_for_socket(socket_path: pathlib.Path, proc: subprocess.Popen[str]) -> N
 class DpdkClientStubIntegrationTests(unittest.TestCase):
     """Verify the Python client can speak to the C IPC stub."""
 
-    def test_client_ping_version_health_ports_stats_and_reset(self) -> None:
+    def test_client_ping_version_health_ports_stats_reset_pause_and_resume(self) -> None:
         if not DEFAULT_DPDKD_BINARY.exists():
             raise unittest.SkipTest(
                 f"dpdkd stub binary is missing; build it first at {DEFAULT_DPDKD_BINARY}"
@@ -116,6 +117,18 @@ class DpdkClientStubIntegrationTests(unittest.TestCase):
                 self.assertEqual(stats_after_reset.request_id, "req-it-7")
                 self.assertEqual(stats_after_reset.unwrap().stats.rx_packets, 0)
                 self.assertEqual(stats_after_reset.unwrap().stats.tx_packets, 0)
+
+                pause = client.pause_datapath()
+                self.assertFalse(pause.ok)
+                self.assertEqual(pause.request_id, "req-it-8")
+                self.assertEqual(pause.error.code, DatapathErrorCode.STATE_CONFLICT)
+                self.assertEqual(pause.error.message, "datapath forwarding loop is not active")
+
+                resume = client.resume_datapath()
+                self.assertFalse(resume.ok)
+                self.assertEqual(resume.request_id, "req-it-9")
+                self.assertEqual(resume.error.code, DatapathErrorCode.STATE_CONFLICT)
+                self.assertEqual(resume.error.message, "datapath forwarding loop is not active")
             finally:
                 proc.terminate()
                 try:

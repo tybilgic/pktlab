@@ -77,4 +77,12 @@ The next writable slice is also now in place:
 - the controller exposes `POST /datapath/stats/reset`
 - `pktlabctl stats reset` is implemented and returns the post-reset counters
 
-Remaining work inside `PLN-009` is the rest of the writable action surface: pause/resume and shutdown semantics.
+The next writable slice after that is also now in place:
+
+- `pause_datapath` and `resume_datapath` are implemented in the daemon IPC
+- the controller exposes `POST /datapath/pause` and `POST /datapath/resume`
+- `pktlabctl datapath pause` and `pktlabctl datapath resume` are implemented
+- a root-backed privileged smoke confirms the forwarding loop actually stops and resumes while
+  datapath health reports the `paused` state explicitly
+
+Remaining work inside `PLN-009` is the final writable action surface: shutdown semantics.

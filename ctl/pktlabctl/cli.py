@@ -6,6 +6,7 @@ import argparse
 import os
 from collections.abc import Sequence
 
+from pktlabctl.commands.datapath import run_datapath_pause, run_datapath_resume
 from pktlabctl.commands.stats import run_stats_reset, run_stats_show
 from pktlabctl.commands.topology import run_topology_apply, run_topology_destroy
 from pktlabctl.commands.status import run_status
@@ -37,6 +38,11 @@ def build_parser() -> argparse.ArgumentParser:
     stats_subparsers.add_parser("show", help="Show current datapath counters")
     stats_subparsers.add_parser("reset", help="Reset datapath counters")
 
+    datapath_parser = subparsers.add_parser("datapath", help="Control the datapath runtime")
+    datapath_subparsers = datapath_parser.add_subparsers(dest="datapath_command", required=True)
+    datapath_subparsers.add_parser("pause", help="Pause datapath forwarding")
+    datapath_subparsers.add_parser("resume", help="Resume datapath forwarding")
+
     topology_parser = subparsers.add_parser("topology", help="Manage the lab topology")
     topology_subparsers = topology_parser.add_subparsers(dest="topology_command", required=True)
     topology_apply_parser = topology_subparsers.add_parser("apply", help="Apply a topology YAML file")
@@ -62,6 +68,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             return run_stats_show(args.controller_url, json_output=args.json_output)
         if args.stats_command == "reset":
             return run_stats_reset(args.controller_url, json_output=args.json_output)
+    if args.command == "datapath":
+        if args.datapath_command == "pause":
+            return run_datapath_pause(args.controller_url, json_output=args.json_output)
+        if args.datapath_command == "resume":
+            return run_datapath_resume(args.controller_url, json_output=args.json_output)
     if args.command == "topology":
         if args.topology_command == "apply":
             return run_topology_apply(

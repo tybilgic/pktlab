@@ -5,6 +5,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "actions.h"
@@ -43,6 +44,23 @@ static void pktlab_datapath_copy_message(char *dst, size_t dst_len, const char *
 
     (void) snprintf(dst, dst_len, "%s", message);
     dst[dst_len - 1U] = '\0';
+}
+
+static int pktlab_datapath_require_active_forwarding(
+    struct pktlab_datapath *datapath,
+    struct pktlab_dpdkd_error *error
+)
+{
+    if (!datapath->started || !datapath->ports_ready) {
+        pktlab_datapath_set_error(
+            error,
+            PKTLAB_DPDKD_ERR_STATE_CONFLICT,
+            "datapath forwarding loop is not active"
+        );
+        return -1;
+    }
+
+    return 0;
 }
 
 static int pktlab_datapath_init_worker_sync(
@@ -218,6 +236,13 @@ static void *pktlab_datapath_worker_main(void *ctx)
     while (!atomic_load_explicit(&datapath->stop_requested, memory_order_relaxed)) {
         bool did_work;
 
+        if (atomic_load_explicit(&datapath->paused, memory_order_relaxed)) {
+            const struct timespec pause_delay = {.tv_sec = 0, .tv_nsec = 1000000L};
+
+            (void) nanosleep(&pause_delay, NULL);
+            continue;
+        }
+
         did_work = pktlab_datapath_forward_direction(datapath, 0U, 1U);
         did_work = pktlab_datapath_forward_direction(datapath, 1U, 0U) || did_work;
         if (!did_work) {
@@ -242,6 +267,7 @@ static int pktlab_datapath_start_worker(
     }
 
     atomic_store_explicit(&datapath->stop_requested, false, memory_order_relaxed);
+    atomic_store_explicit(&datapath->paused, false, memory_order_relaxed);
     datapath->worker_start_ready = false;
     datapath->worker_start_ok = false;
     datapath->worker_error_code = PKTLAB_DPDKD_ERR_NONE;
@@ -299,6 +325,7 @@ static void pktlab_datapath_stop_worker(struct pktlab_datapath *datapath)
     datapath->worker_thread_started = false;
     datapath->worker_start_ready = false;
     datapath->worker_start_ok = false;
+    atomic_store_explicit(&datapath->paused, false, memory_order_relaxed);
 }
 
 int pktlab_datapath_init(
@@ -308,6 +335,7 @@ int pktlab_datapath_init(
 )
 {
     memset(datapath, 0, sizeof(*datapath));
+    atomic_init(&datapath->paused, false);
     atomic_init(&datapath->stop_requested, false);
     if (pktlab_stats_init(&datapath->stats) != 0) {
         pktlab_datapath_set_error(
@@ -346,6 +374,7 @@ int pktlab_datapath_start(
     }
 
     datapath->ports_ready = false;
+    atomic_store_explicit(&datapath->paused, false, memory_order_relaxed);
 
 #if !PKTLAB_DPDKD_HAS_DPDK
     (void) snprintf(
@@ -468,4 +497,55 @@ void pktlab_datapath_stats_snapshot(
 void pktlab_datapath_reset_stats(struct pktlab_datapath *datapath)
 {
     pktlab_stats_reset(&datapath->stats);
+}
+
+int pktlab_datapath_pause(
+    struct pktlab_datapath *datapath,
+    bool *changed,
+    struct pktlab_dpdkd_error *error
+)
+{
+    bool was_paused;
+
+    if (changed != NULL) {
+        *changed = false;
+    }
+
+    if (pktlab_datapath_require_active_forwarding(datapath, error) != 0) {
+        return -1;
+    }
+
+    was_paused = atomic_exchange_explicit(&datapath->paused, true, memory_order_relaxed);
+    if (changed != NULL) {
+        *changed = !was_paused;
+    }
+    return 0;
+}
+
+int pktlab_datapath_resume(
+    struct pktlab_datapath *datapath,
+    bool *changed,
+    struct pktlab_dpdkd_error *error
+)
+{
+    bool was_paused;
+
+    if (changed != NULL) {
+        *changed = false;
+    }
+
+    if (pktlab_datapath_require_active_forwarding(datapath, error) != 0) {
+        return -1;
+    }
+
+    was_paused = atomic_exchange_explicit(&datapath->paused, false, memory_order_relaxed);
+    if (changed != NULL) {
+        *changed = was_paused;
+    }
+    return 0;
+}
+
+bool pktlab_datapath_paused(const struct pktlab_datapath *datapath)
+{
+    return atomic_load_explicit(&datapath->paused, memory_order_relaxed);
 }

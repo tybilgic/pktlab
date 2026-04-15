@@ -19,6 +19,29 @@ static void pktlab_daemon_set_error(
     error->message = message;
 }
 
+static void pktlab_daemon_refresh_started_health(struct pktlab_daemon *daemon)
+{
+    char running_message[PKTLAB_DPDKD_MESSAGE_LEN];
+
+    pktlab_datapath_running_message(&daemon->datapath, running_message, sizeof(running_message));
+    pktlab_health_set_ports_ready(&daemon->health, pktlab_datapath_ports_ready(&daemon->datapath));
+    pktlab_health_set_paused(&daemon->health, pktlab_datapath_paused(&daemon->datapath));
+    pktlab_health_set_state(
+        &daemon->health,
+        pktlab_datapath_ports_ready(&daemon->datapath)
+            ? PKTLAB_DP_STATE_RUNNING
+            : PKTLAB_DP_STATE_DEGRADED,
+        running_message
+    );
+}
+
+static void pktlab_daemon_refresh_paused_health(struct pktlab_daemon *daemon)
+{
+    pktlab_health_set_ports_ready(&daemon->health, pktlab_datapath_ports_ready(&daemon->datapath));
+    pktlab_health_set_paused(&daemon->health, true);
+    pktlab_health_set_state(&daemon->health, PKTLAB_DP_STATE_PAUSED, "datapath forwarding loop paused");
+}
+
 static int pktlab_daemon_dispatch_request(
     void *handler_ctx,
     const struct pktlab_ipc_request *request,
@@ -31,6 +54,7 @@ static int pktlab_daemon_dispatch_request(
     char payload[1024];
     size_t payload_len;
     size_t port_count;
+    bool changed;
     struct pktlab_daemon *daemon;
     struct pktlab_health_snapshot health_snapshot;
     struct pktlab_port_info ports[PKTLAB_DPDKD_PORT_COUNT];
@@ -98,6 +122,44 @@ static int pktlab_daemon_dispatch_request(
                 error,
                 PKTLAB_DPDKD_ERR_INTERNAL,
                 "failed to render reset-stats acknowledgement"
+            );
+            return -1;
+        }
+    } else if (strcmp(request->cmd, "pause_datapath") == 0) {
+        if (pktlab_datapath_pause(&daemon->datapath, &changed, error) != 0) {
+            return -1;
+        }
+        pktlab_daemon_refresh_paused_health(daemon);
+        if (pktlab_json_proto_make_ack_payload(
+                changed
+                    ? "datapath forwarding loop paused"
+                    : "datapath forwarding loop is already paused",
+                payload,
+                sizeof(payload),
+                &payload_len) != 0) {
+            pktlab_daemon_set_error(
+                error,
+                PKTLAB_DPDKD_ERR_INTERNAL,
+                "failed to render pause acknowledgement"
+            );
+            return -1;
+        }
+    } else if (strcmp(request->cmd, "resume_datapath") == 0) {
+        if (pktlab_datapath_resume(&daemon->datapath, &changed, error) != 0) {
+            return -1;
+        }
+        pktlab_daemon_refresh_started_health(daemon);
+        if (pktlab_json_proto_make_ack_payload(
+                changed
+                    ? "datapath forwarding loop resumed"
+                    : "datapath forwarding loop is already running",
+                payload,
+                sizeof(payload),
+                &payload_len) != 0) {
+            pktlab_daemon_set_error(
+                error,
+                PKTLAB_DPDKD_ERR_INTERNAL,
+                "failed to render resume acknowledgement"
             );
             return -1;
         }
@@ -177,7 +239,6 @@ int pktlab_daemon_run(struct pktlab_daemon *daemon, volatile sig_atomic_t *stop_
 {
     int status;
     struct pktlab_dpdkd_error error;
-    char running_message[PKTLAB_DPDKD_MESSAGE_LEN];
 
     PKTLAB_LOG_INFO("starting datapath daemon on socket %s", daemon->socket_path);
     memset(&error, 0, sizeof(error));
@@ -189,15 +250,7 @@ int pktlab_daemon_run(struct pktlab_daemon *daemon, volatile sig_atomic_t *stop_
         );
         return -1;
     }
-    pktlab_datapath_running_message(&daemon->datapath, running_message, sizeof(running_message));
-    pktlab_health_set_ports_ready(&daemon->health, pktlab_datapath_ports_ready(&daemon->datapath));
-    pktlab_health_set_state(
-        &daemon->health,
-        pktlab_datapath_ports_ready(&daemon->datapath)
-            ? PKTLAB_DP_STATE_RUNNING
-            : PKTLAB_DP_STATE_DEGRADED,
-        running_message
-    );
+    pktlab_daemon_refresh_started_health(daemon);
 
     status = pktlab_ipc_server_run(
         &daemon->ipc_server,

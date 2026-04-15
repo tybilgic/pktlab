@@ -115,6 +115,26 @@ class ResetStatsRequest(BaseModel):
     payload: EmptyPayload = Field(default_factory=EmptyPayload)
 
 
+class PauseDatapathRequest(BaseModel):
+    """Typed request envelope for the pause_datapath command."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(min_length=1, pattern=REQUEST_ID_PATTERN)
+    cmd: Literal["pause_datapath"] = "pause_datapath"
+    payload: EmptyPayload = Field(default_factory=EmptyPayload)
+
+
+class ResumeDatapathRequest(BaseModel):
+    """Typed request envelope for the resume_datapath command."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(min_length=1, pattern=REQUEST_ID_PATTERN)
+    cmd: Literal["resume_datapath"] = "resume_datapath"
+    payload: EmptyPayload = Field(default_factory=EmptyPayload)
+
+
 RequestEnvelope = (
     PingRequest
     | GetVersionRequest
@@ -122,6 +142,8 @@ RequestEnvelope = (
     | GetPortsRequest
     | GetStatsRequest
     | ResetStatsRequest
+    | PauseDatapathRequest
+    | ResumeDatapathRequest
 )
 
 
@@ -292,14 +314,17 @@ __all__ = [
     "GetVersionRequest",
     "HealthPayload",
     "HealthStateModel",
+    "PauseDatapathRequest",
     "PortInfoModel",
     "PingRequest",
     "PortsPayload",
     "REQUEST_ID_PATTERN",
     "RawErrorEnvelope",
     "RawSuccessEnvelope",
+    "ResetStatsRequest",
     "RequestEnvelope",
     "ResponseEnvelope",
+    "ResumeDatapathRequest",
     "StatsPayload",
     "VersionPayload",
 ]

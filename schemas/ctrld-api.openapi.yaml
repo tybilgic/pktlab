@@ -125,6 +125,70 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ControllerErrorResponse"
+  /datapath/pause:
+    post:
+      tags:
+        - datapath
+      summary: Pause datapath forwarding
+      operationId: pauseDatapath
+      description: Pause the live datapath forwarding loop and return the updated datapath health.
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatapathControlResponse"
+        "409":
+          description: Controller state conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControllerErrorResponse"
+        "503":
+          description: Datapath IPC is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControllerErrorResponse"
+        "500":
+          description: Unexpected controller or datapath failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControllerErrorResponse"
+  /datapath/resume:
+    post:
+      tags:
+        - datapath
+      summary: Resume datapath forwarding
+      operationId: resumeDatapath
+      description: Resume the live datapath forwarding loop and return the updated datapath health.
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatapathControlResponse"
+        "409":
+          description: Controller state conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControllerErrorResponse"
+        "503":
+          description: Datapath IPC is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControllerErrorResponse"
+        "500":
+          description: Unexpected controller or datapath failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControllerErrorResponse"
   /topology/apply:
     post:
       tags:
@@ -415,6 +479,18 @@ components:
           $ref: "#/components/schemas/DatapathHealth"
         stats:
           $ref: "#/components/schemas/DatapathStats"
+        message:
+          type: string
+          minLength: 1
+    DatapathControlResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - datapath
+        - message
+      properties:
+        datapath:
+          $ref: "#/components/schemas/DatapathHealth"
         message:
           type: string
           minLength: 1
