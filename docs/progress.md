@@ -18,7 +18,7 @@
 | PLN-005 | Controller Bootstrap, Health API, and CLI Status | done | 2026-04-01 | `012be4d`, `fc08760` | Controller supervision, `/health`, `pktlabctl status`, and integration coverage are in place. |
 | PLN-006 | Config Parsing, Validation, and Effective Runtime Policy | done | 2026-04-01 | `e26821b`, `1458a90` | Topology/rules parsing and runtime derivation are in place; standalone rules now report root-relative validation paths while embedded topology rules keep `rules.*` paths. |
 | PLN-007 | Topology Primitives and TAP Reconciliation | done | 2026-04-01 | `d83aba1`, `aa59a77`, `1458a90` | Controller-owned topology lifecycle and topology API/CLI commands are in place; destroy now returns the controller to a healthy no-topology steady state. |
-| PLN-008 | Datapath EAL, Ports, and Pass-Through Loop | done | 2026-04-15 | `4708907`, `e6441db`, `7f7f514`, `d0d29d9`, `d8483bc` | controller-to-daemon runtime plumbing, real DPDK EAL/TAP startup, the single-core forwarding loop, and controller-driven end-to-end traffic verification are all in place |
+| PLN-008 | Datapath EAL, Ports, and Pass-Through Loop | done | 2026-04-15 | `4708907`, `e6441db`, `7f7f514`, `d0d29d9`, `d8483bc`, `eff7ddb` | controller-to-daemon runtime plumbing, real DPDK EAL/TAP startup, the single-core forwarding loop, and controller-driven end-to-end traffic verification are all in place |
 | PLN-009 | Datapath Status, Stats, and User Surface | not started | 2026-03-31 |  |  |
 | PLN-010 | Rules Engine and Atomic Ruleset Replacement | not started | 2026-03-31 |  |  |
 | PLN-011 | Capture, Scenarios, and Metrics | not started | 2026-03-31 |  |  |
@@ -911,7 +911,7 @@ Entries are append-only and ordered so session history can be reconstructed with
 - Next step:
   - start `PLN-009` and expose datapath status and stats through IPC, the controller API, and the CLI
 - Commit:
-  - `<pending>` `ctrld: verify controller-driven end-to-end forwarding`
+  - `eff7ddb` `ctrld: verify controller-driven end-to-end forwarding`
 
 ## Read Before Continuing
 
