@@ -4,8 +4,8 @@
 
 - Active milestone: `M4`
 - Active ticket: `PLN-008`
-- Overall state: `PLN-008` is in progress with real DPDK EAL startup and TAP PMD bring-up in place; the single-core forwarding loop and root-backed end-to-end traffic verification remain
-- Latest progress entry: `PRG-024`
+- Overall state: `PLN-008` is in progress with real DPDK EAL startup and TAP PMD bring-up verified on a root-capable host; the single-core forwarding loop and root-backed end-to-end traffic verification remain
+- Latest progress entry: `PRG-025`
 
 ## Ticket Status
 
@@ -18,7 +18,7 @@
 | PLN-005 | Controller Bootstrap, Health API, and CLI Status | done | 2026-04-01 | `012be4d`, `fc08760` | Controller supervision, `/health`, `pktlabctl status`, and integration coverage are in place. |
 | PLN-006 | Config Parsing, Validation, and Effective Runtime Policy | done | 2026-04-01 | `e26821b`, `1458a90` | Topology/rules parsing and runtime derivation are in place; standalone rules now report root-relative validation paths while embedded topology rules keep `rules.*` paths. |
 | PLN-007 | Topology Primitives and TAP Reconciliation | done | 2026-04-01 | `d83aba1`, `aa59a77`, `1458a90` | Controller-owned topology lifecycle and topology API/CLI commands are in place; destroy now returns the controller to a healthy no-topology steady state. |
-| PLN-008 | Datapath EAL, Ports, and Pass-Through Loop | in progress | 2026-04-15 | `4708907`, `e6441db`, `7f7f514` | controller-to-daemon runtime plumbing plus real DPDK EAL and TAP PMD startup are in place; the privileged smoke now self-provisions its minimum hugepages, while packet forwarding and root-backed traffic verification are still pending |
+| PLN-008 | Datapath EAL, Ports, and Pass-Through Loop | in progress | 2026-04-15 | `4708907`, `e6441db`, `7f7f514`, `d0d29d9` | controller-to-daemon runtime plumbing plus real DPDK EAL and TAP PMD startup are in place and verified on a root-capable host; packet forwarding and root-backed end-to-end traffic verification are still pending |
 | PLN-009 | Datapath Status, Stats, and User Surface | not started | 2026-03-31 |  |  |
 | PLN-010 | Rules Engine and Atomic Ruleset Replacement | not started | 2026-03-31 |  |  |
 | PLN-011 | Capture, Scenarios, and Metrics | not started | 2026-03-31 |  |  |
@@ -815,6 +815,34 @@ Entries are append-only and ordered so session history can be reconstructed with
   - rerun the privileged datapath TAP-startup smoke on the root-capable host and, if it passes, move on to the single-core forwarding loop
 - Commit:
   - `7f7f514` `tests: provision hugepages for the privileged datapath smoke`
+
+### PRG-025 | 2026-04-15
+
+- Ticket: `PLN-008`
+- Status change: privileged TAP-startup smoke now self-provisions its minimum hugepages before launch -> privileged TAP-startup smoke passed on a root-capable host with explicit success output
+- Implemented:
+  - updated the `dpdkd` smoke scripts so successful runs print an explicit `ok:` line instead of exiting silently
+  - kept the existing `skipping:` output and exception-driven failure paths unchanged so success, skip, and failure remain distinguishable at the terminal
+  - confirmed on a root-capable host that the privileged TAP-startup smoke now completes end to end and reports `ok: privileged datapath TAP startup smoke passed`
+- Files touched:
+  - `dpdkd/tests/integration/test_ipc_smoke.py`
+  - `dpdkd/tests/integration/test_tap_startup_privileged.py`
+  - `docs/progress.md`
+- Verification:
+  - ran `python3 -m compileall dpdkd/tests`
+  - ran `python3 dpdkd/tests/integration/test_ipc_smoke.py build/dpdkd/pktlab-dpdkd` and confirmed it now prints an explicit success line in the local non-root path
+  - ran `python3 dpdkd/tests/integration/test_tap_startup_privileged.py build/dpdkd/pktlab-dpdkd` in this environment and confirmed it still prints a clear `skipping:` message when the privileged opt-in env var is absent
+  - reran `sudo env PKTLAB_RUN_PRIVILEGED_DPDKD_SMOKE=1 python3 dpdkd/tests/integration/test_tap_startup_privileged.py build/dpdkd/pktlab-dpdkd` on the root-capable host and confirmed it completed with `ok: privileged datapath TAP startup smoke passed`
+- Remaining:
+  - add the single-core pass-through forwarding loop so packets actually traverse ingress -> egress
+  - run a real controller-driven topology apply plus source -> datapath -> sink traffic smoke once forwarding exists
+- Risks or blockers:
+  - datapath startup and TAP creation are now verified, but there is still no packet-processing loop, so live traffic cannot traverse the datapath yet
+  - the privileged smoke manages hugepages for its own run; controller-driven or manual datapath runs still need the configured hugepage budget available on the host
+- Next step:
+  - implement the single-core forwarding loop in `pktlab-dpdkd`, then run a real controller-driven source -> datapath -> sink traffic smoke
+- Commit:
+  - `d0d29d9` `tests: print explicit success output for smoke scripts`
 
 ## Read Before Continuing
 
