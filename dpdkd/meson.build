@@ -18,6 +18,8 @@ dpdk_dep = dependency('libdpdk', required: false, method: 'pkg-config')
 
 pktlab_dpdkd_c_args = []
 pktlab_dpdkd_dependencies = []
+thread_dep = dependency('threads')
+pktlab_dpdkd_dependencies += thread_dep
 if dpdk_dep.found()
   pktlab_dpdkd_c_args += '-DPKTLAB_DPDKD_HAS_DPDK=1'
   pktlab_dpdkd_dependencies += dpdk_dep
@@ -32,6 +34,8 @@ pktlab_dpdkd_sources = files(
   'src/datapath.c',
   'src/eal.c',
   'src/ports.c',
+  'src/parser.c',
+  'src/actions.c',
   'src/ipc_server.c',
   'src/json_proto.c',
   'src/health.c',

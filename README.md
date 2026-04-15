@@ -33,12 +33,15 @@ Implemented today:
   readiness; on unprivileged hosts it stays reachable but reports a degraded no-fast-path state
 - an opt-in privileged datapath smoke test that exercises real DPDK TAP startup for `dtap0` and
   `dtap1`
+- third `PLN-008` forwarding slice: `pktlab-dpdkd` now includes bounded parser/actions modules,
+  a bidirectional single-core pass-through loop, and an opt-in privileged forwarding smoke test
+  for source -> datapath -> sink packet traversal
 
 Not implemented yet:
 
-- single-core packet forwarding, parser/actions modules, and rules engine
-- live end-to-end traffic verification through source -> datapath -> sink; TAP-backed datapath
-  startup is now in place, but the pass-through loop is still missing
+- rules engine
+- controller-driven live end-to-end traffic verification through topology apply; the datapath now
+  has a direct privileged forwarding smoke, but the controller-driven traffic path is still pending
 
 The current implementation baseline covers `PLN-001` through `PLN-007`. Progress history and the
 active ticket live in [docs/progress.md](docs/progress.md).
@@ -117,8 +120,7 @@ Build note:
 - if `libdpdk.pc` is missing on the host, Meson warns and builds the current non-DPDK fallback path
 - that fallback still supports the controller-facing runtime arguments and the existing IPC tests,
   but the daemon reports `degraded` and does not create TAP PMD interfaces
-- `PLN-008` is not complete until a root-capable host verifies the TAP PMD startup path and the
-  forwarding loop lands
+- `PLN-008` is not complete until the controller-driven end-to-end traffic path is verified
 
 Sanity-check the current Python tree:
 
@@ -145,6 +147,14 @@ Run the privileged datapath TAP-startup smoke path explicitly:
 ```sh
 sudo env PKTLAB_RUN_PRIVILEGED_DPDKD_SMOKE=1 \
   python3 dpdkd/tests/integration/test_tap_startup_privileged.py \
+  build/dpdkd/pktlab-dpdkd
+```
+
+Run the privileged datapath forwarding smoke path explicitly:
+
+```sh
+sudo env PKTLAB_RUN_PRIVILEGED_DPDKD_FORWARDING_SMOKE=1 \
+  python3 dpdkd/tests/integration/test_forwarding_privileged.py \
   build/dpdkd/pktlab-dpdkd
 ```
 
@@ -189,6 +199,10 @@ Controller test note:
   can create and expose `dtap0` and `dtap1` through DPDK on a root-capable host; the smoke script
   will temporarily reserve the minimum 2 MB hugepages needed for the configured `hugepages_mb`
   budget and restore the original host setting afterward
+- the privileged datapath forwarding smoke is also opt-in and verifies that `pktlab-dpdkd` can
+  move packets bidirectionally between root-backed source and sink namespaces through `dtap0` and
+  `dtap1`; it uses the same temporary hugepage-reservation model as the TAP-startup smoke and is
+  now verified on a root-capable host
 
 Optional contract sanity checks:
 
@@ -212,8 +226,8 @@ Runtime notes:
 - the daemon now accepts runtime knobs for `--lcores`, `--hugepages-mb`, queue sizes, mempool size,
   and deterministic ingress/egress TAP names
 - with `libdpdk` available and root or `CAP_NET_ADMIN`, startup now initializes DPDK EAL and
-  creates the requested TAP PMD interfaces, but real datapath runs still require the configured
-  hugepage budget to be available on the host
+  creates the requested TAP PMD interfaces and runs the single-core pass-through forwarding loop,
+  but real datapath runs still require the configured hugepage budget to be available on the host
 - without those privileges, or without `libdpdk` at build time, the daemon still answers IPC but
   reports `degraded` and does not expose a forwarding fast path
 - the daemon handles `SIGINT` and `SIGTERM`

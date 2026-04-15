@@ -4,15 +4,19 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <pthread.h>
+#include <stdatomic.h>
 
 #include "eal.h"
 #include "pktlab_dpdkd/errors.h"
+#include "pktlab_dpdkd/types.h"
 #include "ports.h"
 
 #define PKTLAB_DPDKD_DEFAULT_LCORES "1"
 #define PKTLAB_DPDKD_DEFAULT_HUGEPAGE_SIZE_MB 2U
 #define PKTLAB_DPDKD_DEFAULT_HUGEPAGES_MB 256U
 #define PKTLAB_DPDKD_DEFAULT_BURST_SIZE 32U
+#define PKTLAB_DPDKD_MAX_BURST_SIZE 256U
 #define PKTLAB_DPDKD_DEFAULT_RX_QUEUE_SIZE 256U
 #define PKTLAB_DPDKD_DEFAULT_TX_QUEUE_SIZE 256U
 #define PKTLAB_DPDKD_DEFAULT_MEMPOOL_SIZE 4096U
@@ -33,9 +37,20 @@ struct pktlab_datapath_config {
 struct pktlab_datapath {
     struct pktlab_eal_config eal;
     struct pktlab_ports_config ports;
+    struct dp_stats_snapshot stats;
+    pthread_t worker_thread;
+    pthread_mutex_t worker_lock;
+    pthread_cond_t worker_cond;
+    atomic_bool stop_requested;
     bool configured;
     bool started;
     bool ports_ready;
+    bool worker_sync_initialized;
+    bool worker_thread_started;
+    bool worker_start_ready;
+    bool worker_start_ok;
+    enum pktlab_dpdkd_error_code worker_error_code;
+    char worker_error_message[PKTLAB_DPDKD_MESSAGE_LEN];
     char running_message[PKTLAB_DPDKD_MESSAGE_LEN];
 };
 

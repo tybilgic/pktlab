@@ -49,11 +49,11 @@ int pktlab_ports_prepare(
 {
     memset(ports, 0, sizeof(*ports));
 
-    if (config->burst_size == 0U || config->burst_size > UINT16_MAX) {
+    if (config->burst_size == 0U || config->burst_size > PKTLAB_DPDKD_MAX_BURST_SIZE) {
         pktlab_ports_set_error(
             error,
             PKTLAB_DPDKD_ERR_INVALID_REQUEST,
-            "burst_size must be between 1 and 65535"
+            "burst_size must be between 1 and 256"
         );
         return -1;
     }
