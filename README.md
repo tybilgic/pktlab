@@ -186,7 +186,9 @@ Controller test note:
   the real `ip netns` apply/destroy flow with synthetic datapath-side `dtap0` and `dtap1`
   interfaces until `PLN-008` provides the real TAP-backed datapath
 - the privileged datapath TAP-startup smoke test is also opt-in and verifies that `pktlab-dpdkd`
-  can create and expose `dtap0` and `dtap1` through DPDK on a root-capable host
+  can create and expose `dtap0` and `dtap1` through DPDK on a root-capable host; the smoke script
+  will temporarily reserve the minimum 2 MB hugepages needed for the configured `hugepages_mb`
+  budget and restore the original host setting afterward
 
 Optional contract sanity checks:
 
@@ -210,7 +212,8 @@ Runtime notes:
 - the daemon now accepts runtime knobs for `--lcores`, `--hugepages-mb`, queue sizes, mempool size,
   and deterministic ingress/egress TAP names
 - with `libdpdk` available and root or `CAP_NET_ADMIN`, startup now initializes DPDK EAL and
-  creates the requested TAP PMD interfaces
+  creates the requested TAP PMD interfaces, but real datapath runs still require the configured
+  hugepage budget to be available on the host
 - without those privileges, or without `libdpdk` at build time, the daemon still answers IPC but
   reports `degraded` and does not expose a forwarding fast path
 - the daemon handles `SIGINT` and `SIGTERM`
