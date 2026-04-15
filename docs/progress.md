@@ -18,7 +18,7 @@
 | PLN-005 | Controller Bootstrap, Health API, and CLI Status | done | 2026-04-01 | `012be4d`, `fc08760` | Controller supervision, `/health`, `pktlabctl status`, and integration coverage are in place. |
 | PLN-006 | Config Parsing, Validation, and Effective Runtime Policy | done | 2026-04-01 | `e26821b`, `1458a90` | Topology/rules parsing and runtime derivation are in place; standalone rules now report root-relative validation paths while embedded topology rules keep `rules.*` paths. |
 | PLN-007 | Topology Primitives and TAP Reconciliation | done | 2026-04-01 | `d83aba1`, `aa59a77`, `1458a90` | Controller-owned topology lifecycle and topology API/CLI commands are in place; destroy now returns the controller to a healthy no-topology steady state. |
-| PLN-008 | Datapath EAL, Ports, and Pass-Through Loop | in progress | 2026-04-15 | `4708907`, `<pending>` | controller-to-daemon runtime plumbing plus real DPDK EAL and TAP PMD startup are in place; the privileged EAL argv incompatibility is fixed, while packet forwarding and root-backed traffic verification are still pending |
+| PLN-008 | Datapath EAL, Ports, and Pass-Through Loop | in progress | 2026-04-15 | `4708907`, `e6441db` | controller-to-daemon runtime plumbing plus real DPDK EAL and TAP PMD startup are in place; the privileged EAL argv incompatibility is fixed, while packet forwarding and root-backed traffic verification are still pending |
 | PLN-009 | Datapath Status, Stats, and User Surface | not started | 2026-03-31 |  |  |
 | PLN-010 | Rules Engine and Atomic Ruleset Replacement | not started | 2026-03-31 |  |  |
 | PLN-011 | Capture, Scenarios, and Metrics | not started | 2026-03-31 |  |  |
@@ -785,7 +785,7 @@ Entries are append-only and ordered so session history can be reconstructed with
 - Next step:
   - rerun the privileged datapath TAP-startup smoke on the root-capable host and, if it passes, move on to the single-core forwarding loop
 - Commit:
-  - `<pending>` `dpdkd: fix the privileged EAL startup arguments`
+  - `e6441db` `dpdkd: fix the privileged EAL startup arguments`
 
 ## Read Before Continuing
 
