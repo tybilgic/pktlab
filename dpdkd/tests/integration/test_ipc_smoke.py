@@ -118,17 +118,26 @@ def main() -> int:
                 assert health_state["ports_ready"] is False
             assert health["payload"]["health"]["paused"] is False
 
-            unknown = send_request(
+            ports = send_request(
                 socket_path,
-                json.dumps({"id": "req-4", "cmd": "get_stats", "payload": {}}).encode("utf-8"),
+                json.dumps({"id": "req-4", "cmd": "get_ports", "payload": {}}).encode("utf-8"),
             )
-            assert unknown["ok"] is False
-            assert unknown["error"]["code"] == "UNKNOWN_COMMAND"
-            assert unknown["id"] == "req-4"
+            assert ports["ok"] is True
+            assert [port["name"] for port in ports["payload"]["ports"]] == ["dtap0", "dtap1"]
+            assert [port["role"] for port in ports["payload"]["ports"]] == ["ingress", "egress"]
+
+            stats = send_request(
+                socket_path,
+                json.dumps({"id": "req-5", "cmd": "get_stats", "payload": {}}).encode("utf-8"),
+            )
+            assert stats["ok"] is True
+            assert stats["payload"]["stats"]["rx_packets"] >= 0
+            assert stats["payload"]["stats"]["tx_packets"] >= 0
+            assert stats["payload"]["stats"]["rule_hits"] == {}
 
             malformed = send_request(
                 socket_path,
-                b'{"id":"req-5","cmd":"ping","payload":',
+                b'{"id":"req-6","cmd":"ping","payload":',
             )
             assert malformed["ok"] is False
             assert malformed["error"]["code"] == "INVALID_REQUEST"

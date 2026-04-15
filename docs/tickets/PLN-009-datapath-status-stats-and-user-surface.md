@@ -2,7 +2,7 @@
 
 ## Status
 
-`not started`
+`in progress`
 
 ## Goal
 
@@ -64,3 +64,11 @@ Once packets flow, users need to inspect datapath state without talking to the d
 ## Handoff Note
 
 If pause/resume semantics are not stable yet, land the read-only status surface first and add write actions in a follow-up sub-slice.
+
+That read-only slice is now in place:
+
+- `get_ports` and `get_stats` are implemented in the daemon IPC
+- the controller exposes `GET /datapath/status` and `GET /datapath/stats`
+- `pktlabctl status` now shows live port state and `pktlabctl stats show` is implemented
+
+Remaining work inside `PLN-009` is the writable action surface: `reset_stats`, pause/resume, and shutdown semantics.

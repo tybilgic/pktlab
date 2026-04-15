@@ -130,11 +130,13 @@ static bool pktlab_datapath_forward_direction(
 )
 {
     struct rte_mbuf *packets[PKTLAB_DPDKD_MAX_BURST_SIZE];
+    struct dp_stats_snapshot burst_stats;
     uint16_t rx_count;
     uint16_t candidate_count;
     uint16_t index;
     uint16_t sent_count;
 
+    memset(&burst_stats, 0, sizeof(burst_stats));
     rx_count = rte_eth_rx_burst(
         datapath->ports.infos[ingress_index].port_id,
         0U,
@@ -145,16 +147,16 @@ static bool pktlab_datapath_forward_direction(
         return false;
     }
 
-    datapath->stats.rx_bursts++;
-    datapath->stats.rx_packets += rx_count;
+    burst_stats.rx_bursts = 1U;
+    burst_stats.rx_packets = rx_count;
 
     candidate_count = 0U;
     for (index = 0U; index < rx_count; index++) {
         struct pkt_meta meta;
 
         if (pktlab_parser_parse(packets[index], &meta) != 0) {
-            datapath->stats.drop_parse_errors++;
-            datapath->stats.drop_packets++;
+            burst_stats.drop_parse_errors++;
+            burst_stats.drop_packets++;
             pktlab_actions_drop_burst(&packets[index], 1U);
             continue;
         }
@@ -163,23 +165,25 @@ static bool pktlab_datapath_forward_direction(
     }
 
     if (candidate_count == 0U) {
+        pktlab_stats_add(&datapath->stats, &burst_stats);
         return true;
     }
 
-    datapath->stats.tx_bursts++;
+    burst_stats.tx_bursts = 1U;
     sent_count = pktlab_actions_forward_burst(
         datapath->ports.infos[egress_index].port_id,
         packets,
         candidate_count
     );
-    datapath->stats.tx_packets += sent_count;
+    burst_stats.tx_packets = sent_count;
     if (sent_count < candidate_count) {
         const uint16_t unsent_count = (uint16_t) (candidate_count - sent_count);
 
-        datapath->stats.unsent_packets += unsent_count;
-        datapath->stats.drop_packets += unsent_count;
+        burst_stats.unsent_packets = unsent_count;
+        burst_stats.drop_packets += unsent_count;
     }
 
+    pktlab_stats_add(&datapath->stats, &burst_stats);
     return true;
 }
 #endif
@@ -242,7 +246,7 @@ static int pktlab_datapath_start_worker(
     datapath->worker_start_ok = false;
     datapath->worker_error_code = PKTLAB_DPDKD_ERR_NONE;
     datapath->worker_error_message[0] = '\0';
-    memset(&datapath->stats, 0, sizeof(datapath->stats));
+    pktlab_stats_reset(&datapath->stats);
 
     status = pthread_create(&datapath->worker_thread, NULL, pktlab_datapath_worker_main, datapath);
     if (status != 0) {
@@ -305,11 +309,21 @@ int pktlab_datapath_init(
 {
     memset(datapath, 0, sizeof(*datapath));
     atomic_init(&datapath->stop_requested, false);
+    if (pktlab_stats_init(&datapath->stats) != 0) {
+        pktlab_datapath_set_error(
+            error,
+            PKTLAB_DPDKD_ERR_INTERNAL,
+            "failed to initialize datapath stats tracking"
+        );
+        return -1;
+    }
 
     if (pktlab_eal_prepare(&datapath->eal, config, error) != 0) {
+        pktlab_stats_destroy(&datapath->stats);
         return -1;
     }
     if (pktlab_ports_prepare(&datapath->ports, config, error) != 0) {
+        pktlab_stats_destroy(&datapath->stats);
         return -1;
     }
 
@@ -396,6 +410,7 @@ void pktlab_datapath_cleanup(struct pktlab_datapath *datapath)
     pktlab_ports_cleanup(&datapath->ports);
     pktlab_eal_cleanup(&datapath->eal);
     pktlab_datapath_destroy_worker_sync(datapath);
+    pktlab_stats_destroy(&datapath->stats);
     datapath->ports_ready = false;
     datapath->started = false;
     datapath->configured = false;
@@ -430,4 +445,22 @@ void pktlab_datapath_running_message(
 bool pktlab_datapath_ports_ready(const struct pktlab_datapath *datapath)
 {
     return datapath->ports_ready;
+}
+
+void pktlab_datapath_ports_snapshot(
+    const struct pktlab_datapath *datapath,
+    struct pktlab_port_info *infos,
+    size_t infos_cap,
+    size_t *info_count
+)
+{
+    pktlab_ports_snapshot(&datapath->ports, infos, infos_cap, info_count);
+}
+
+void pktlab_datapath_stats_snapshot(
+    const struct pktlab_datapath *datapath,
+    struct dp_stats_snapshot *snapshot
+)
+{
+    pktlab_stats_snapshot(&datapath->stats, snapshot);
 }

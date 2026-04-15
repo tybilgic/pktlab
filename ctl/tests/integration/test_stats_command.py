@@ -1,4 +1,4 @@
-"""Smoke test for `pktlabctl status` against a local controller process."""
+"""Smoke test for `pktlabctl stats show` against a local controller process."""
 
 from __future__ import annotations
 
@@ -8,13 +8,9 @@ import socket
 import subprocess
 import sys
 import tempfile
-import time
 import unittest
 
-import httpx
-
-REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
-DEFAULT_DPDKD_BINARY = REPO_ROOT / "build" / "dpdkd" / "pktlab-dpdkd"
+from .test_status_command import DEFAULT_DPDKD_BINARY, REPO_ROOT, wait_for_health
 
 
 def reserve_tcp_port() -> int:
@@ -25,30 +21,10 @@ def reserve_tcp_port() -> int:
         return int(sock.getsockname()[1])
 
 
-def wait_for_health(url: str, proc: subprocess.Popen[str]) -> dict[str, object]:
-    """Wait until the controller returns a successful health response."""
+class StatsCommandIntegrationTests(unittest.TestCase):
+    """Verify the stats command talks only to the controller API surface."""
 
-    deadline = time.time() + 10.0
-    while time.time() < deadline:
-        if proc.poll() is not None:
-            stderr = proc.stderr.read() if proc.stderr is not None else ""
-            raise RuntimeError(f"controller exited early with code {proc.returncode}: {stderr}")
-        try:
-            response = httpx.get(f"{url}/health", timeout=0.2)
-            if response.status_code == 200:
-                payload = response.json()
-                if isinstance(payload, dict):
-                    return payload
-        except httpx.HTTPError:
-            pass
-        time.sleep(0.05)
-    raise RuntimeError("timed out waiting for controller health")
-
-
-class StatusCommandIntegrationTests(unittest.TestCase):
-    """Verify the CLI talks only to the controller API."""
-
-    def test_status_command_supports_human_and_json_output(self) -> None:
+    def test_stats_show_supports_human_and_json_output(self) -> None:
         if not DEFAULT_DPDKD_BINARY.exists():
             raise unittest.SkipTest(
                 f"dpdkd stub binary is missing; build it first at {DEFAULT_DPDKD_BINARY}"
@@ -57,7 +33,7 @@ class StatusCommandIntegrationTests(unittest.TestCase):
         port = reserve_tcp_port()
         controller_url = f"http://127.0.0.1:{port}"
 
-        with tempfile.TemporaryDirectory(prefix="pktlabctl-status-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="pktlabctl-stats-") as tmpdir:
             socket_path = pathlib.Path(tmpdir) / "dpdkd.sock"
             controller = subprocess.Popen(
                 [
@@ -91,7 +67,8 @@ class StatusCommandIntegrationTests(unittest.TestCase):
                         "pktlabctl.main",
                         "--controller-url",
                         controller_url,
-                        "status",
+                        "stats",
+                        "show",
                     ],
                     cwd=REPO_ROOT,
                     capture_output=True,
@@ -99,11 +76,9 @@ class StatusCommandIntegrationTests(unittest.TestCase):
                     check=False,
                 )
                 self.assertEqual(human.returncode, 0, msg=human.stderr)
-                self.assertRegex(human.stdout, r"controller: (running|degraded) \(")
-                self.assertIn("datapath: reachable", human.stdout)
-                self.assertIn("ports:", human.stdout)
-                self.assertIn("ingress: dtap0", human.stdout)
-                self.assertIn("egress: dtap1", human.stdout)
+                self.assertIn("datapath stats:", human.stdout)
+                self.assertIn("rx_packets:", human.stdout)
+                self.assertIn("rule_hits: none", human.stdout)
 
                 json_result = subprocess.run(
                     [
@@ -113,7 +88,8 @@ class StatusCommandIntegrationTests(unittest.TestCase):
                         "--controller-url",
                         controller_url,
                         "--json",
-                        "status",
+                        "stats",
+                        "show",
                     ],
                     cwd=REPO_ROOT,
                     capture_output=True,
@@ -122,9 +98,9 @@ class StatusCommandIntegrationTests(unittest.TestCase):
                 )
                 self.assertEqual(json_result.returncode, 0, msg=json_result.stderr)
                 payload = json.loads(json_result.stdout)
-                self.assertIn(payload["controller"]["state"], {"running", "degraded"})
-                self.assertTrue(payload["datapath"]["reachable"])
-                self.assertEqual([port["name"] for port in payload["ports"]], ["dtap0", "dtap1"])
+                self.assertIn(payload["datapath"]["state"], {"running", "degraded"})
+                self.assertEqual(payload["stats"]["rx_packets"], 0)
+                self.assertEqual(payload["stats"]["rule_hits"], {})
             finally:
                 controller.terminate()
                 try:

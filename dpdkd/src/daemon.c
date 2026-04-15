@@ -30,8 +30,11 @@ static int pktlab_daemon_dispatch_request(
 {
     char payload[1024];
     size_t payload_len;
+    size_t port_count;
     struct pktlab_daemon *daemon;
     struct pktlab_health_snapshot health_snapshot;
+    struct pktlab_port_info ports[PKTLAB_DPDKD_PORT_COUNT];
+    struct dp_stats_snapshot stats_snapshot;
 
     daemon = handler_ctx;
 
@@ -57,6 +60,33 @@ static int pktlab_daemon_dispatch_request(
                 error,
                 PKTLAB_DPDKD_ERR_INTERNAL,
                 "failed to render health payload"
+            );
+            return -1;
+        }
+    } else if (strcmp(request->cmd, "get_ports") == 0) {
+        pktlab_datapath_ports_snapshot(
+            &daemon->datapath,
+            ports,
+            PKTLAB_DPDKD_PORT_COUNT,
+            &port_count
+        );
+        if (pktlab_json_proto_make_ports_payload(
+                ports, port_count, payload, sizeof(payload), &payload_len) != 0) {
+            pktlab_daemon_set_error(
+                error,
+                PKTLAB_DPDKD_ERR_INTERNAL,
+                "failed to render ports payload"
+            );
+            return -1;
+        }
+    } else if (strcmp(request->cmd, "get_stats") == 0) {
+        pktlab_datapath_stats_snapshot(&daemon->datapath, &stats_snapshot);
+        if (pktlab_json_proto_make_stats_payload(
+                &stats_snapshot, payload, sizeof(payload), &payload_len) != 0) {
+            pktlab_daemon_set_error(
+                error,
+                PKTLAB_DPDKD_ERR_INTERNAL,
+                "failed to render stats payload"
             );
             return -1;
         }
@@ -106,7 +136,6 @@ int pktlab_daemon_init(
     pktlab_health_set_ports_ready(&daemon->health, false);
     pktlab_health_set_paused(&daemon->health, false);
     pktlab_health_set_applied_rule_version(&daemon->health, 0U);
-    pktlab_stats_init(&daemon->stats);
     if (pktlab_datapath_init(&daemon->datapath, &config->datapath, error) != 0) {
         pktlab_health_set_state(
             &daemon->health,

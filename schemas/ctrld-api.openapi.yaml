@@ -10,6 +10,8 @@ info:
 tags:
   - name: health
     description: Controller and datapath runtime visibility.
+  - name: datapath
+    description: Live datapath runtime status and counters exposed through the controller.
   - name: topology
     description: Controller-owned topology apply and destroy operations.
 paths:
@@ -27,6 +29,70 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthResponse"
+  /datapath/status:
+    get:
+      tags:
+        - datapath
+      summary: Get datapath runtime status
+      operationId: getDatapathStatus
+      description: Return controller health, datapath runtime status, and live datapath ports.
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatapathStatusResponse"
+        "409":
+          description: Controller state conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControllerErrorResponse"
+        "503":
+          description: Datapath IPC is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControllerErrorResponse"
+        "500":
+          description: Unexpected controller or datapath failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControllerErrorResponse"
+  /datapath/stats:
+    get:
+      tags:
+        - datapath
+      summary: Get datapath counters
+      operationId: getDatapathStats
+      description: Return the latest datapath health metadata and live datapath counters.
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatapathStatsResponse"
+        "409":
+          description: Controller state conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControllerErrorResponse"
+        "503":
+          description: Datapath IPC is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControllerErrorResponse"
+        "500":
+          description: Unexpected controller or datapath failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControllerErrorResponse"
   /topology/apply:
     post:
       tags:
@@ -208,6 +274,103 @@ components:
           $ref: "#/components/schemas/ControllerHealth"
         datapath:
           $ref: "#/components/schemas/DatapathHealth"
+    DatapathPort:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - port_id
+        - role
+        - state
+      properties:
+        name:
+          type: string
+          minLength: 1
+        port_id:
+          type: integer
+          minimum: 0
+        role:
+          type: string
+          enum:
+            - ingress
+            - egress
+        state:
+          type: string
+          enum:
+            - up
+            - down
+    DatapathStats:
+      type: object
+      additionalProperties: false
+      required:
+        - rx_packets
+        - tx_packets
+        - drop_packets
+        - drop_parse_errors
+        - drop_no_match
+        - rx_bursts
+        - tx_bursts
+        - unsent_packets
+        - rule_hits
+      properties:
+        rx_packets:
+          type: integer
+          minimum: 0
+        tx_packets:
+          type: integer
+          minimum: 0
+        drop_packets:
+          type: integer
+          minimum: 0
+        drop_parse_errors:
+          type: integer
+          minimum: 0
+        drop_no_match:
+          type: integer
+          minimum: 0
+        rx_bursts:
+          type: integer
+          minimum: 0
+        tx_bursts:
+          type: integer
+          minimum: 0
+        unsent_packets:
+          type: integer
+          minimum: 0
+        rule_hits:
+          type: object
+          propertyNames:
+            pattern: "^[0-9]+$"
+          additionalProperties:
+            type: integer
+            minimum: 0
+    DatapathStatusResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - controller
+        - datapath
+        - ports
+      properties:
+        controller:
+          $ref: "#/components/schemas/ControllerHealth"
+        datapath:
+          $ref: "#/components/schemas/DatapathHealth"
+        ports:
+          type: array
+          items:
+            $ref: "#/components/schemas/DatapathPort"
+    DatapathStatsResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - datapath
+        - stats
+      properties:
+        datapath:
+          $ref: "#/components/schemas/DatapathHealth"
+        stats:
+          $ref: "#/components/schemas/DatapathStats"
     TopologyApplyRequest:
       type: object
       additionalProperties: false

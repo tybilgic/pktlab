@@ -40,7 +40,7 @@ def wait_for_socket(socket_path: pathlib.Path, proc: subprocess.Popen[str]) -> N
 class DpdkClientStubIntegrationTests(unittest.TestCase):
     """Verify the Python client can speak to the C IPC stub."""
 
-    def test_client_ping_version_and_health(self) -> None:
+    def test_client_ping_version_health_ports_and_stats(self) -> None:
         if not DEFAULT_DPDKD_BINARY.exists():
             raise unittest.SkipTest(
                 f"dpdkd stub binary is missing; build it first at {DEFAULT_DPDKD_BINARY}"
@@ -89,6 +89,22 @@ class DpdkClientStubIntegrationTests(unittest.TestCase):
                             for marker in ("need root/CAP_NET_ADMIN", "libdpdk not available")
                         )
                     )
+
+                ports = client.get_ports()
+                self.assertTrue(ports.ok)
+                self.assertEqual(ports.request_id, "req-it-4")
+                self.assertEqual([port.name for port in ports.unwrap().ports], ["dtap0", "dtap1"])
+                self.assertEqual([port.role for port in ports.unwrap().ports], ["ingress", "egress"])
+                self.assertTrue(all(port.state in {"up", "down"} for port in ports.unwrap().ports))
+
+                stats = client.get_stats()
+                self.assertTrue(stats.ok)
+                self.assertEqual(stats.request_id, "req-it-5")
+                counters = stats.unwrap().stats
+                self.assertEqual(counters.rx_packets, 0)
+                self.assertEqual(counters.tx_packets, 0)
+                self.assertEqual(counters.drop_packets, 0)
+                self.assertEqual(counters.rule_hits, {})
             finally:
                 proc.terminate()
                 try:

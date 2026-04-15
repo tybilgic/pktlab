@@ -39,10 +39,14 @@ Implemented today:
 - final `PLN-008` verification slice: an opt-in privileged controller-runtime smoke now applies a
   real topology, supervises `pktlab-dpdkd` inside the datapath namespace, and verifies end-to-end
   source -> datapath -> sink traffic through the controller-managed path
+- first `PLN-009` read-only slice: `pktlab-dpdkd` now exposes live `get_ports` and `get_stats`
+  IPC commands, `pktlab-ctrld` exposes `GET /datapath/status` and `GET /datapath/stats`, and
+  `pktlabctl` now shows live port status plus `stats show`
 
 Not implemented yet:
 
-- datapath status/stats IPC surface and controller/CLI visibility work from `PLN-009`
+- writable datapath control actions from `PLN-009` such as `reset_stats`, pause/resume, and
+  shutdown semantics
 - rules engine
 
 The current implementation baseline covers `PLN-001` through `PLN-008`. Progress history and the
@@ -245,7 +249,7 @@ Runtime notes:
 - without those privileges, or without `libdpdk` at build time, the daemon still answers IPC but
   reports `degraded` and does not expose a forwarding fast path
 - the daemon handles `SIGINT` and `SIGTERM`
-- supported IPC commands: `ping`, `get_version`, `get_health`
+- supported IPC commands: `ping`, `get_version`, `get_health`, `get_ports`, `get_stats`
 
 Run the controller with datapath supervision:
 
@@ -262,6 +266,8 @@ Query the controller through the CLI:
 ```sh
 .venv/bin/pktlabctl --controller-url http://127.0.0.1:8080 status
 .venv/bin/pktlabctl --controller-url http://127.0.0.1:8080 --json status
+.venv/bin/pktlabctl --controller-url http://127.0.0.1:8080 stats show
+.venv/bin/pktlabctl --controller-url http://127.0.0.1:8080 --json stats show
 .venv/bin/pktlabctl --controller-url http://127.0.0.1:8080 topology apply -f lab/topologies/linear.yaml
 .venv/bin/pktlabctl --controller-url http://127.0.0.1:8080 topology destroy
 ```
@@ -271,6 +277,7 @@ Controller runtime notes:
 - controller startup is not considered ready until the supervised datapath answers `ping`,
   `get_health`, and `get_version`
 - controller health is exposed at `GET /health`
+- live datapath status and counters are exposed at `GET /datapath/status` and `GET /datapath/stats`
 - `pktlabctl` talks only to the controller HTTP API, not to the datapath socket directly
 - topology apply will stop any currently supervised datapath instance and restart it inside the
   configured datapath namespace before TAP reconciliation
@@ -290,7 +297,8 @@ Controller runtime notes:
 As a user:
 
 - treat the repo as an implementation baseline, not a complete packet-processing lab yet
-- use `pktlab-ctrld` plus `pktlabctl status` to exercise the first complete control path
+- use `pktlab-ctrld` plus `pktlabctl status` and `pktlabctl stats show` to inspect the current
+  control/datapath state through the controller
 - treat `pktlabctl topology apply -f <file>` and `pktlabctl topology destroy` as implemented
   control-plane surface; on a root-capable host with `libdpdk`, the controller-managed datapath
   workflow is now verified end to end
@@ -338,4 +346,5 @@ from pktlab_ctrld.config import (
 
 ## Current Next Step
 
-Start `PLN-009`: expose datapath status and stats through IPC, the controller API, and the CLI.
+Continue `PLN-009` with the writable datapath controls: `reset_stats`, pause/resume, and shutdown
+semantics surfaced consistently through IPC, the controller API, and the CLI.

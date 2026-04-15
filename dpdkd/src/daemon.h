@@ -9,7 +9,6 @@
 #include "health.h"
 #include "ipc_server.h"
 #include "log.h"
-#include "stats.h"
 
 #define PKTLAB_DPDKD_DEFAULT_SOCKET_PATH "/run/pktlab/dpdkd.sock"
 
@@ -22,7 +21,6 @@ struct pktlab_daemon_config {
 struct pktlab_daemon {
     char socket_path[PATH_MAX];
     struct pktlab_health_tracker health;
-    struct pktlab_stats_tracker stats;
     struct pktlab_datapath datapath;
     struct pktlab_ipc_server ipc_server;
 };

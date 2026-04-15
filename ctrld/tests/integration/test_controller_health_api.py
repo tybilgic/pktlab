@@ -1,4 +1,4 @@
-"""Integration test for controller startup and the `/health` endpoint."""
+"""Integration tests for controller runtime visibility endpoints."""
 
 from __future__ import annotations
 
@@ -21,9 +21,9 @@ def _is_expected_degraded_datapath_message(message: str) -> bool:
 
 
 class ControllerHealthApiIntegrationTests(unittest.TestCase):
-    """Verify the controller supervises the datapath and exposes `/health`."""
+    """Verify the controller supervises the datapath and exposes read-only status routes."""
 
-    def test_health_endpoint_reports_controller_and_datapath_state_consistently(self) -> None:
+    def test_health_and_datapath_endpoints_report_consistent_runtime_state(self) -> None:
         if not DEFAULT_DPDKD_BINARY.exists():
             raise unittest.SkipTest(
                 f"dpdkd stub binary is missing; build it first at {DEFAULT_DPDKD_BINARY}"
@@ -64,6 +64,29 @@ class ControllerHealthApiIntegrationTests(unittest.TestCase):
                 else:
                     self.assertEqual(payload["controller"]["state"], "degraded")
                     self.assertTrue(_is_expected_degraded_datapath_message(payload["datapath"]["message"]))
+
+                status_response = client.get("/datapath/status")
+                self.assertEqual(status_response.status_code, 200)
+                status_payload = status_response.json()
+                self.assertEqual(status_payload["controller"]["state"], payload["controller"]["state"])
+                self.assertEqual(status_payload["datapath"]["state"], payload["datapath"]["state"])
+                self.assertEqual(
+                    [port["name"] for port in status_payload["ports"]],
+                    ["dtap0", "dtap1"],
+                )
+                self.assertEqual(
+                    [port["role"] for port in status_payload["ports"]],
+                    ["ingress", "egress"],
+                )
+
+                stats_response = client.get("/datapath/stats")
+                self.assertEqual(stats_response.status_code, 200)
+                stats_payload = stats_response.json()
+                self.assertEqual(stats_payload["datapath"]["state"], payload["datapath"]["state"])
+                self.assertEqual(stats_payload["stats"]["rx_packets"], 0)
+                self.assertEqual(stats_payload["stats"]["tx_packets"], 0)
+                self.assertEqual(stats_payload["stats"]["drop_packets"], 0)
+                self.assertEqual(stats_payload["stats"]["rule_hits"], {})
 
 
 if __name__ == "__main__":

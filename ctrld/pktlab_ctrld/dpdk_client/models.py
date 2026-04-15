@@ -33,6 +33,9 @@ DatapathStateValue = Literal[
     "failed",
 ]
 
+DatapathPortRoleValue = Literal["ingress", "egress"]
+DatapathPortStateValue = Literal["up", "down"]
+
 
 class DatapathErrorCode(StrEnum):
     """Error codes returned by the datapath IPC server."""
@@ -82,7 +85,27 @@ class GetHealthRequest(BaseModel):
     payload: EmptyPayload = Field(default_factory=EmptyPayload)
 
 
-RequestEnvelope = PingRequest | GetVersionRequest | GetHealthRequest
+class GetPortsRequest(BaseModel):
+    """Typed request envelope for the get_ports command."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(min_length=1, pattern=REQUEST_ID_PATTERN)
+    cmd: Literal["get_ports"] = "get_ports"
+    payload: EmptyPayload = Field(default_factory=EmptyPayload)
+
+
+class GetStatsRequest(BaseModel):
+    """Typed request envelope for the get_stats command."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(min_length=1, pattern=REQUEST_ID_PATTERN)
+    cmd: Literal["get_stats"] = "get_stats"
+    payload: EmptyPayload = Field(default_factory=EmptyPayload)
+
+
+RequestEnvelope = PingRequest | GetVersionRequest | GetHealthRequest | GetPortsRequest | GetStatsRequest
 
 
 class DatapathErrorModel(BaseModel):
@@ -155,6 +178,49 @@ class HealthPayload(BaseModel):
     health: HealthStateModel
 
 
+class PortInfoModel(BaseModel):
+    """Single datapath port status record."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1)
+    port_id: int = Field(ge=0)
+    role: DatapathPortRoleValue
+    state: DatapathPortStateValue
+
+
+class PortsPayload(BaseModel):
+    """Top-level datapath ports response payload."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    ports: list[PortInfoModel]
+
+
+class DatapathStatsModel(BaseModel):
+    """Current datapath packet counters."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rx_packets: int = Field(ge=0)
+    tx_packets: int = Field(ge=0)
+    drop_packets: int = Field(ge=0)
+    drop_parse_errors: int = Field(ge=0)
+    drop_no_match: int = Field(ge=0)
+    rx_bursts: int = Field(ge=0)
+    tx_bursts: int = Field(ge=0)
+    unsent_packets: int = Field(ge=0)
+    rule_hits: dict[str, int] = Field(default_factory=dict)
+
+
+class StatsPayload(BaseModel):
+    """Top-level datapath stats response payload."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    stats: DatapathStatsModel
+
+
 PayloadT = TypeVar("PayloadT", bound=BaseModel)
 
 
@@ -198,17 +264,25 @@ __all__ = [
     "DatapathCommand",
     "DatapathErrorCode",
     "DatapathErrorModel",
+    "DatapathPortRoleValue",
+    "DatapathPortStateValue",
     "DatapathStateValue",
+    "DatapathStatsModel",
     "EmptyPayload",
     "GetHealthRequest",
+    "GetPortsRequest",
+    "GetStatsRequest",
     "GetVersionRequest",
     "HealthPayload",
     "HealthStateModel",
+    "PortInfoModel",
     "PingRequest",
+    "PortsPayload",
     "REQUEST_ID_PATTERN",
     "RawErrorEnvelope",
     "RawSuccessEnvelope",
     "RequestEnvelope",
     "ResponseEnvelope",
+    "StatsPayload",
     "VersionPayload",
 ]

@@ -2,6 +2,7 @@
 
 #include <arpa/inet.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <stdbool.h>
 #include <stdarg.h>
 #include <stdint.h>
@@ -919,6 +920,139 @@ int pktlab_json_proto_make_health_payload(
         health->applied_rule_version,
         health->ports_ready ? "true" : "false",
         health->paused ? "true" : "false"
+    );
+}
+
+static const char *pktlab_json_proto_port_role_name(enum pktlab_port_role role)
+{
+    switch (role) {
+    case PKTLAB_PORT_ROLE_INGRESS:
+        return "ingress";
+    case PKTLAB_PORT_ROLE_EGRESS:
+        return "egress";
+    default:
+        return "egress";
+    }
+}
+
+static const char *pktlab_json_proto_port_state_name(enum pktlab_port_state state)
+{
+    switch (state) {
+    case PKTLAB_PORT_STATE_UP:
+        return "up";
+    case PKTLAB_PORT_STATE_DOWN:
+        return "down";
+    default:
+        return "down";
+    }
+}
+
+int pktlab_json_proto_make_ports_payload(
+    const struct pktlab_port_info *ports,
+    size_t port_count,
+    char *buffer,
+    size_t buffer_cap,
+    size_t *json_len
+)
+{
+    size_t index;
+    size_t written;
+    struct pktlab_dpdkd_error error;
+
+    if (buffer_cap == 0U) {
+        return -1;
+    }
+
+    written = 0U;
+    written += (size_t) snprintf(buffer + written, buffer_cap - written, "{\"ports\":[");
+    if (written >= buffer_cap) {
+        pktlab_json_proto_set_error(
+            &error,
+            PKTLAB_DPDKD_ERR_INTERNAL,
+            "ports payload exceeded output buffer"
+        );
+        return -1;
+    }
+
+    for (index = 0U; index < port_count; index++) {
+        const struct pktlab_port_info *port;
+        char escaped_name[(PKTLAB_DPDKD_NAME_LEN * 2U) + 1U];
+        int item_written;
+        size_t ignored_len;
+
+        port = &ports[index];
+        if (pktlab_json_proto_escape_string(
+                port->name, escaped_name, sizeof(escaped_name), &ignored_len) != 0) {
+            pktlab_json_proto_set_error(
+                &error,
+                PKTLAB_DPDKD_ERR_INTERNAL,
+                "port name could not be escaped"
+            );
+            return -1;
+        }
+        item_written = snprintf(
+            buffer + written,
+            buffer_cap - written,
+            "%s{\"name\":\"%s\",\"port_id\":%u,\"role\":\"%s\",\"state\":\"%s\"}",
+            index == 0U ? "" : ",",
+            escaped_name,
+            (unsigned int) port->port_id,
+            pktlab_json_proto_port_role_name(port->role),
+            pktlab_json_proto_port_state_name(port->state)
+        );
+        if (item_written < 0 || (size_t) item_written >= buffer_cap - written) {
+            pktlab_json_proto_set_error(
+                &error,
+                PKTLAB_DPDKD_ERR_INTERNAL,
+                "ports payload exceeded output buffer"
+            );
+            return -1;
+        }
+        written += (size_t) item_written;
+    }
+
+    if (written + 3U > buffer_cap) {
+        pktlab_json_proto_set_error(
+            &error,
+            PKTLAB_DPDKD_ERR_INTERNAL,
+            "ports payload exceeded output buffer"
+        );
+        return -1;
+    }
+
+    memcpy(buffer + written, "]}", 3U);
+    written += 2U;
+    *json_len = written;
+    return 0;
+}
+
+int pktlab_json_proto_make_stats_payload(
+    const struct dp_stats_snapshot *stats,
+    char *buffer,
+    size_t buffer_cap,
+    size_t *json_len
+)
+{
+    struct pktlab_dpdkd_error error;
+
+    return pktlab_json_proto_snprintf(
+        buffer,
+        buffer_cap,
+        json_len,
+        &error,
+        "{\"stats\":{\"rx_packets\":%" PRIu64 ",\"tx_packets\":%" PRIu64
+        ",\"drop_packets\":%" PRIu64 ",\"drop_parse_errors\":%" PRIu64
+        ",\"drop_no_match\":%" PRIu64 ",\"rx_bursts\":%" PRIu64
+        ",\"tx_bursts\":%" PRIu64 ",\"unsent_packets\":%" PRIu64
+        ",\"rule_hits\":{}}}",
+        stats->rx_packets,
+        stats->tx_packets,
+        stats->drop_packets,
+        stats->drop_parse_errors,
+        stats->drop_no_match,
+        stats->rx_bursts,
+        stats->tx_bursts,
+        stats->unsent_packets
     );
 }
 

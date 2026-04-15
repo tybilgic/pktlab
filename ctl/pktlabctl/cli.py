@@ -6,6 +6,7 @@ import argparse
 import os
 from collections.abc import Sequence
 
+from pktlabctl.commands.stats import run_stats_show
 from pktlabctl.commands.topology import run_topology_apply, run_topology_destroy
 from pktlabctl.commands.status import run_status
 
@@ -31,6 +32,10 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("status", help="Show controller and datapath health")
 
+    stats_parser = subparsers.add_parser("stats", help="Show datapath counters")
+    stats_subparsers = stats_parser.add_subparsers(dest="stats_command", required=True)
+    stats_subparsers.add_parser("show", help="Show current datapath counters")
+
     topology_parser = subparsers.add_parser("topology", help="Manage the lab topology")
     topology_subparsers = topology_parser.add_subparsers(dest="topology_command", required=True)
     topology_apply_parser = topology_subparsers.add_parser("apply", help="Apply a topology YAML file")
@@ -51,6 +56,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "status":
         return run_status(args.controller_url, json_output=args.json_output)
+    if args.command == "stats":
+        if args.stats_command == "show":
+            return run_stats_show(args.controller_url, json_output=args.json_output)
     if args.command == "topology":
         if args.topology_command == "apply":
             return run_topology_apply(

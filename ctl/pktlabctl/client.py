@@ -50,6 +50,52 @@ class HealthResponseModel(BaseModel):
     datapath: DatapathStatusModel
 
 
+class DatapathPortModel(BaseModel):
+    """Single datapath port entry returned by the controller."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1)
+    port_id: int = Field(ge=0)
+    role: str = Field(min_length=1)
+    state: str = Field(min_length=1)
+
+
+class DatapathStatusResponseModel(BaseModel):
+    """Typed `/datapath/status` response used by the CLI."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    controller: ControllerStatusModel
+    datapath: DatapathStatusModel
+    ports: list[DatapathPortModel]
+
+
+class DatapathStatsModel(BaseModel):
+    """Typed datapath counters used by the CLI."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rx_packets: int = Field(ge=0)
+    tx_packets: int = Field(ge=0)
+    drop_packets: int = Field(ge=0)
+    drop_parse_errors: int = Field(ge=0)
+    drop_no_match: int = Field(ge=0)
+    rx_bursts: int = Field(ge=0)
+    tx_bursts: int = Field(ge=0)
+    unsent_packets: int = Field(ge=0)
+    rule_hits: dict[str, int] = Field(default_factory=dict)
+
+
+class DatapathStatsResponseModel(BaseModel):
+    """Typed `/datapath/stats` response used by the CLI."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    datapath: DatapathStatusModel
+    stats: DatapathStatsModel
+
+
 class TopologyOperationResponseModel(BaseModel):
     """Typed topology lifecycle response used by the CLI."""
 
@@ -96,6 +142,28 @@ class ControllerClient:
         except ValidationError as exc:
             raise ControllerClientError(
                 f"controller health response did not match the expected schema: {exc}"
+            ) from exc
+
+    def get_datapath_status(self) -> DatapathStatusResponseModel:
+        """Fetch the controller datapath status document."""
+
+        response = self._request_json("GET", "/datapath/status")
+        try:
+            return DatapathStatusResponseModel.model_validate(response)
+        except ValidationError as exc:
+            raise ControllerClientError(
+                f"controller datapath status response did not match the expected schema: {exc}"
+            ) from exc
+
+    def get_datapath_stats(self) -> DatapathStatsResponseModel:
+        """Fetch the controller datapath stats document."""
+
+        response = self._request_json("GET", "/datapath/stats")
+        try:
+            return DatapathStatsResponseModel.model_validate(response)
+        except ValidationError as exc:
+            raise ControllerClientError(
+                f"controller datapath stats response did not match the expected schema: {exc}"
             ) from exc
 
     def apply_topology(self, config_path: str) -> TopologyOperationResponseModel:
@@ -163,7 +231,11 @@ __all__ = [
     "ControllerClient",
     "ControllerClientError",
     "ControllerStatusModel",
+    "DatapathPortModel",
     "DatapathStatusModel",
+    "DatapathStatusResponseModel",
+    "DatapathStatsModel",
+    "DatapathStatsResponseModel",
     "HealthResponseModel",
     "TopologyOperationResponseModel",
 ]

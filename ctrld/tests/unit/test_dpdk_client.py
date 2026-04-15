@@ -78,6 +78,57 @@ class DpdkClientUnitTests(unittest.TestCase):
             with self.assertRaises(DatapathProtocolError):
                 client.ping()
 
+    def test_get_ports_returns_typed_success_result(self) -> None:
+        client = DpdkClient("/tmp/pktlab.sock", request_id_factory=lambda: "req-client-4")
+
+        with mock.patch.object(
+            client,
+            "_exchange",
+            return_value=RawSuccessEnvelope(
+                id="req-client-4",
+                ok=True,
+                payload={
+                    "ports": [
+                        {"name": "dtap0", "port_id": 0, "role": "ingress", "state": "down"},
+                        {"name": "dtap1", "port_id": 1, "role": "egress", "state": "down"},
+                    ]
+                },
+            ),
+        ):
+            result = client.get_ports()
+
+        self.assertTrue(result.ok)
+        self.assertEqual([port.name for port in result.unwrap().ports], ["dtap0", "dtap1"])
+
+    def test_get_stats_returns_typed_success_result(self) -> None:
+        client = DpdkClient("/tmp/pktlab.sock", request_id_factory=lambda: "req-client-5")
+
+        with mock.patch.object(
+            client,
+            "_exchange",
+            return_value=RawSuccessEnvelope(
+                id="req-client-5",
+                ok=True,
+                payload={
+                    "stats": {
+                        "rx_packets": 1,
+                        "tx_packets": 1,
+                        "drop_packets": 0,
+                        "drop_parse_errors": 0,
+                        "drop_no_match": 0,
+                        "rx_bursts": 1,
+                        "tx_bursts": 1,
+                        "unsent_packets": 0,
+                        "rule_hits": {},
+                    }
+                },
+            ),
+        ):
+            result = client.get_stats()
+
+        self.assertTrue(result.ok)
+        self.assertEqual(result.unwrap().stats.rx_packets, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

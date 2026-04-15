@@ -41,6 +41,63 @@ class DatapathHealthModel(BaseModel):
     paused: bool = False
 
 
+class DatapathPortModel(BaseModel):
+    """Single datapath port status entry."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1)
+    port_id: int = Field(ge=0)
+    role: Literal["ingress", "egress"]
+    state: Literal["up", "down"]
+
+
+class DatapathStatsModel(BaseModel):
+    """Controller-facing datapath counters."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rx_packets: int = Field(ge=0)
+    tx_packets: int = Field(ge=0)
+    drop_packets: int = Field(ge=0)
+    drop_parse_errors: int = Field(ge=0)
+    drop_no_match: int = Field(ge=0)
+    rx_bursts: int = Field(ge=0)
+    tx_bursts: int = Field(ge=0)
+    unsent_packets: int = Field(ge=0)
+    rule_hits: dict[str, int] = Field(default_factory=dict)
+
+
+def _datapath_health_model_from_status(datapath_status: object) -> DatapathHealthModel:
+    """Map a supervisor status object into the public datapath health model."""
+
+    from pktlab_ctrld.process.supervisor import DatapathProcessStatus
+
+    if not isinstance(datapath_status, DatapathProcessStatus):
+        raise TypeError("datapath_status must be a DatapathProcessStatus")
+
+    datapath_health = datapath_status.health
+    datapath_version = datapath_status.version
+    return DatapathHealthModel(
+        managed=datapath_status.managed,
+        reachable=datapath_status.reachable,
+        socket_path=datapath_status.socket_path,
+        pid=datapath_status.pid,
+        exit_code=datapath_status.exit_code,
+        last_error=datapath_status.last_error,
+        service=datapath_version.service if datapath_version is not None else None,
+        version=datapath_version.version if datapath_version is not None else None,
+        dpdk_version=datapath_version.dpdk_version if datapath_version is not None else None,
+        state=datapath_health.state if datapath_health is not None else None,
+        message=datapath_health.message if datapath_health is not None else None,
+        applied_rule_version=(
+            datapath_health.applied_rule_version if datapath_health is not None else None
+        ),
+        ports_ready=datapath_health.ports_ready if datapath_health is not None else False,
+        paused=datapath_health.paused if datapath_health is not None else False,
+    )
+
+
 class HealthResponseModel(BaseModel):
     """Top-level controller health response."""
 
@@ -58,34 +115,70 @@ class HealthResponseModel(BaseModel):
         if not isinstance(snapshot, ControllerHealthSnapshot):
             raise TypeError("snapshot must be a ControllerHealthSnapshot")
 
-        datapath_status = snapshot.datapath_status
-        datapath_health = datapath_status.health
-        datapath_version = datapath_status.version
-
         return cls(
             controller=ControllerHealthModel(
                 version=snapshot.controller_version,
                 state=snapshot.controller_state,
                 message=snapshot.controller_message,
             ),
-            datapath=DatapathHealthModel(
-                managed=datapath_status.managed,
-                reachable=datapath_status.reachable,
-                socket_path=datapath_status.socket_path,
-                pid=datapath_status.pid,
-                exit_code=datapath_status.exit_code,
-                last_error=datapath_status.last_error,
-                service=datapath_version.service if datapath_version is not None else None,
-                version=datapath_version.version if datapath_version is not None else None,
-                dpdk_version=datapath_version.dpdk_version if datapath_version is not None else None,
-                state=datapath_health.state if datapath_health is not None else None,
-                message=datapath_health.message if datapath_health is not None else None,
-                applied_rule_version=(
-                    datapath_health.applied_rule_version if datapath_health is not None else None
-                ),
-                ports_ready=datapath_health.ports_ready if datapath_health is not None else False,
-                paused=datapath_health.paused if datapath_health is not None else False,
-            ),
+            datapath=_datapath_health_model_from_status(snapshot.datapath_status),
+        )
+
+
+class DatapathStatusResponseModel(BaseModel):
+    """Controller-facing datapath status including ports."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    controller: ControllerHealthModel
+    datapath: DatapathHealthModel
+    ports: list[DatapathPortModel]
+
+    @classmethod
+    def from_snapshot(cls, snapshot: object) -> "DatapathStatusResponseModel":
+        """Map an internal datapath status snapshot into the REST model."""
+
+        from pktlab_ctrld.app import DatapathRuntimeStatusSnapshot
+
+        if not isinstance(snapshot, DatapathRuntimeStatusSnapshot):
+            raise TypeError("snapshot must be a DatapathRuntimeStatusSnapshot")
+
+        health = HealthResponseModel.from_snapshot(snapshot.controller_snapshot)
+        return cls(
+            controller=health.controller,
+            datapath=health.datapath,
+            ports=[
+                DatapathPortModel(
+                    name=port.name,
+                    port_id=port.port_id,
+                    role=port.role,
+                    state=port.state,
+                )
+                for port in snapshot.ports
+            ],
+        )
+
+
+class DatapathStatsResponseModel(BaseModel):
+    """Controller-facing datapath counters with runtime status."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    datapath: DatapathHealthModel
+    stats: DatapathStatsModel
+
+    @classmethod
+    def from_snapshot(cls, snapshot: object) -> "DatapathStatsResponseModel":
+        """Map an internal datapath stats snapshot into the REST model."""
+
+        from pktlab_ctrld.app import DatapathRuntimeStatsSnapshot
+
+        if not isinstance(snapshot, DatapathRuntimeStatsSnapshot):
+            raise TypeError("snapshot must be a DatapathRuntimeStatsSnapshot")
+
+        return cls(
+            datapath=_datapath_health_model_from_status(snapshot.datapath_status),
+            stats=DatapathStatsModel.model_validate(snapshot.stats.model_dump(mode="json")),
         )
 
 
@@ -133,6 +226,10 @@ class TopologyOperationResponseModel(BaseModel):
 __all__ = [
     "ControllerHealthModel",
     "DatapathHealthModel",
+    "DatapathPortModel",
+    "DatapathStatsModel",
+    "DatapathStatsResponseModel",
+    "DatapathStatusResponseModel",
     "HealthResponseModel",
     "TopologyApplyRequestModel",
     "TopologyOperationResponseModel",

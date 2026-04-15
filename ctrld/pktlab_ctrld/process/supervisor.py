@@ -9,7 +9,13 @@ from dataclasses import dataclass
 from typing import Callable
 
 from pktlab_ctrld.dpdk_client.client import DpdkClient
-from pktlab_ctrld.dpdk_client.models import HealthStateModel, VersionPayload
+from pktlab_ctrld.dpdk_client.models import (
+    CommandResult,
+    HealthStateModel,
+    PortsPayload,
+    StatsPayload,
+    VersionPayload,
+)
 from pktlab_ctrld.error import DatapathTransportError, ProcessExecutionError
 
 
@@ -115,6 +121,30 @@ class DpdkdSupervisor:
 
         with self._lock:
             return self._status_locked()
+
+    def get_ports(self) -> CommandResult[PortsPayload]:
+        """Fetch the live datapath port status over IPC."""
+
+        with self._lock:
+            status = self._status_locked()
+            if not status.reachable:
+                raise DatapathTransportError(
+                    "datapath IPC is not reachable for port status",
+                    context={"socket_path": self.config.socket_path},
+                )
+            return self._require_client_locked().get_ports()
+
+    def get_stats(self) -> CommandResult[StatsPayload]:
+        """Fetch the live datapath counters over IPC."""
+
+        with self._lock:
+            status = self._status_locked()
+            if not status.reachable:
+                raise DatapathTransportError(
+                    "datapath IPC is not reachable for stats",
+                    context={"socket_path": self.config.socket_path},
+                )
+            return self._require_client_locked().get_stats()
 
     def stop(self) -> None:
         """Terminate the datapath subprocess if it is running."""

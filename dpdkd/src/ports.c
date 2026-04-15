@@ -311,6 +311,33 @@ void pktlab_ports_cleanup(struct pktlab_ports_config *ports)
     pktlab_ports_set_state(ports, PKTLAB_PORT_STATE_DOWN);
 }
 
+void pktlab_ports_snapshot(
+    const struct pktlab_ports_config *ports,
+    struct pktlab_port_info *infos,
+    size_t infos_cap,
+    size_t *info_count
+)
+{
+    size_t copy_count;
+
+    if (info_count != NULL) {
+        *info_count = 0U;
+    }
+    if (infos == NULL || infos_cap == 0U) {
+        return;
+    }
+
+    copy_count = infos_cap;
+    if (copy_count > PKTLAB_DPDKD_PORT_COUNT) {
+        copy_count = PKTLAB_DPDKD_PORT_COUNT;
+    }
+
+    memcpy(infos, ports->infos, copy_count * sizeof(*infos));
+    if (info_count != NULL) {
+        *info_count = copy_count;
+    }
+}
+
 bool pktlab_ports_ready(const struct pktlab_ports_config *ports)
 {
     return ports->ready;

@@ -7,6 +7,11 @@ from threading import RLock
 
 from pktlab_ctrld import __version__
 from pktlab_ctrld.config.validation import ValidatedTopologyConfig
+from pktlab_ctrld.dpdk_client.models import (
+    DatapathErrorCode,
+    DatapathStatsModel,
+    PortInfoModel,
+)
 from pktlab_ctrld.error import ErrorCode, PktlabError
 from pktlab_ctrld.process.supervisor import DatapathProcessStatus, DpdkdSupervisor, SupervisorConfig
 from pktlab_ctrld.state.desired import ControllerStateValue, DesiredState
@@ -45,6 +50,22 @@ class ControllerHealthSnapshot:
     desired_state: DesiredState
     observed_state: ObservedState
     datapath_status: DatapathProcessStatus
+
+
+@dataclass(frozen=True, slots=True)
+class DatapathRuntimeStatusSnapshot:
+    """Controller-visible datapath runtime status plus ports."""
+
+    controller_snapshot: ControllerHealthSnapshot
+    ports: tuple[PortInfoModel, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class DatapathRuntimeStatsSnapshot:
+    """Controller-visible datapath runtime stats."""
+
+    datapath_status: DatapathProcessStatus
+    stats: DatapathStatsModel
 
 
 class ControllerRuntime:
@@ -255,6 +276,48 @@ class ControllerRuntime:
                 datapath_status=datapath_status,
             )
 
+    def datapath_status_snapshot(self) -> DatapathRuntimeStatusSnapshot:
+        """Return datapath runtime status plus live ports."""
+
+        with self._lock:
+            controller_snapshot = self.health_snapshot()
+            ports: tuple[PortInfoModel, ...] = ()
+            if self._supervisor is not None and controller_snapshot.datapath_status.reachable:
+                ports_result = self._supervisor.get_ports()
+                if ports_result.ok:
+                    ports = tuple(ports_result.unwrap().ports)
+                else:
+                    raise self._pktlab_error_from_datapath_error(
+                        ports_result.error.code,
+                        ports_result.error.message,
+                    )
+
+            return DatapathRuntimeStatusSnapshot(
+                controller_snapshot=controller_snapshot,
+                ports=ports,
+            )
+
+    def datapath_stats_snapshot(self) -> DatapathRuntimeStatsSnapshot:
+        """Return live datapath counters."""
+
+        with self._lock:
+            datapath_status = self._current_datapath_status_locked()
+            if self._supervisor is None:
+                raise PktlabError(
+                    ErrorCode.STATE_CONFLICT,
+                    "controller is not supervising a datapath process",
+                )
+            stats_result = self._supervisor.get_stats()
+            if not stats_result.ok:
+                raise self._pktlab_error_from_datapath_error(
+                    stats_result.error.code,
+                    stats_result.error.message,
+                )
+            return DatapathRuntimeStatsSnapshot(
+                datapath_status=datapath_status,
+                stats=stats_result.unwrap().stats,
+            )
+
     def _recompute_controller_health(self, datapath_status: DatapathProcessStatus) -> None:
         if self._controller_override_message is not None:
             self._controller_state = "degraded"
@@ -333,6 +396,13 @@ class ControllerRuntime:
             desired_controller_state="running" if self._started else "stopped",
             desired_datapath_running=False,
         )
+
+    def _pktlab_error_from_datapath_error(
+        self,
+        code: DatapathErrorCode,
+        message: str,
+    ) -> PktlabError:
+        return PktlabError(_map_datapath_error_code(code), message)
 
     def _clear_controller_override(self) -> None:
         self._controller_override_message = None
@@ -414,9 +484,27 @@ def _port_name_for_role(validated_topology: ValidatedTopologyConfig, role: str) 
     raise ValueError(f"expected a dpdk port with role {role}")
 
 
+def _map_datapath_error_code(code: DatapathErrorCode) -> ErrorCode:
+    if code == DatapathErrorCode.INVALID_REQUEST:
+        return ErrorCode.INVALID_REQUEST
+    if code == DatapathErrorCode.INVALID_PAYLOAD:
+        return ErrorCode.INVALID_PAYLOAD
+    if code == DatapathErrorCode.UNKNOWN_COMMAND:
+        return ErrorCode.UNKNOWN_COMMAND
+    if code == DatapathErrorCode.RULE_VALIDATION_ERROR:
+        return ErrorCode.RULE_VALIDATION_ERROR
+    if code == DatapathErrorCode.PORT_INIT_ERROR:
+        return ErrorCode.PORT_INIT_ERROR
+    if code == DatapathErrorCode.STATE_CONFLICT:
+        return ErrorCode.STATE_CONFLICT
+    return ErrorCode.INTERNAL_ERROR
+
+
 __all__ = [
     "ControllerConfig",
     "ControllerHealthSnapshot",
     "ControllerRuntime",
+    "DatapathRuntimeStatsSnapshot",
+    "DatapathRuntimeStatusSnapshot",
     "build_dpdk_runtime_args",
 ]

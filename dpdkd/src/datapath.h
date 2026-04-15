@@ -11,6 +11,7 @@
 #include "pktlab_dpdkd/errors.h"
 #include "pktlab_dpdkd/types.h"
 #include "ports.h"
+#include "stats.h"
 
 #define PKTLAB_DPDKD_DEFAULT_LCORES "1"
 #define PKTLAB_DPDKD_DEFAULT_HUGEPAGE_SIZE_MB 2U
@@ -37,7 +38,7 @@ struct pktlab_datapath_config {
 struct pktlab_datapath {
     struct pktlab_eal_config eal;
     struct pktlab_ports_config ports;
-    struct dp_stats_snapshot stats;
+    struct pktlab_stats_tracker stats;
     pthread_t worker_thread;
     pthread_mutex_t worker_lock;
     pthread_cond_t worker_cond;
@@ -70,5 +71,15 @@ void pktlab_datapath_running_message(
     size_t buffer_cap
 );
 bool pktlab_datapath_ports_ready(const struct pktlab_datapath *datapath);
+void pktlab_datapath_ports_snapshot(
+    const struct pktlab_datapath *datapath,
+    struct pktlab_port_info *infos,
+    size_t infos_cap,
+    size_t *info_count
+);
+void pktlab_datapath_stats_snapshot(
+    const struct pktlab_datapath *datapath,
+    struct dp_stats_snapshot *snapshot
+);
 
 #endif /* PKTLAB_DPDKD_DATAPATH_H */

@@ -16,8 +16,12 @@ from . import protocol
 from .models import (
     AckPayload,
     CommandResult,
+    GetPortsRequest,
+    GetStatsRequest,
     GetHealthRequest,
     GetVersionRequest,
+    PortsPayload,
+    StatsPayload,
     HealthPayload,
     PingRequest,
     RawErrorEnvelope,
@@ -65,6 +69,18 @@ class DpdkClient:
 
         request = GetHealthRequest(id=self._request_id_factory())
         return self._typed_call(request, HealthPayload)
+
+    def get_ports(self) -> CommandResult[PortsPayload]:
+        """Fetch the current datapath port status."""
+
+        request = GetPortsRequest(id=self._request_id_factory())
+        return self._typed_call(request, PortsPayload)
+
+    def get_stats(self) -> CommandResult[StatsPayload]:
+        """Fetch the current datapath counters."""
+
+        request = GetStatsRequest(id=self._request_id_factory())
+        return self._typed_call(request, StatsPayload)
 
     def _typed_call(
         self,

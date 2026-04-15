@@ -45,6 +45,19 @@ int pktlab_json_proto_make_health_payload(
     size_t buffer_cap,
     size_t *json_len
 );
+int pktlab_json_proto_make_ports_payload(
+    const struct pktlab_port_info *ports,
+    size_t port_count,
+    char *buffer,
+    size_t buffer_cap,
+    size_t *json_len
+);
+int pktlab_json_proto_make_stats_payload(
+    const struct dp_stats_snapshot *stats,
+    char *buffer,
+    size_t buffer_cap,
+    size_t *json_len
+);
 int pktlab_json_proto_make_success(
     const char *request_id,
     const char *payload_json,

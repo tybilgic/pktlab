@@ -2,6 +2,7 @@
 #define PKTLAB_DPDKD_PORTS_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include "pktlab_dpdkd/errors.h"
@@ -35,6 +36,12 @@ int pktlab_ports_start(
     struct pktlab_dpdkd_error *error
 );
 void pktlab_ports_cleanup(struct pktlab_ports_config *ports);
+void pktlab_ports_snapshot(
+    const struct pktlab_ports_config *ports,
+    struct pktlab_port_info *infos,
+    size_t infos_cap,
+    size_t *info_count
+);
 bool pktlab_ports_ready(const struct pktlab_ports_config *ports);
 void pktlab_ports_set_state(struct pktlab_ports_config *ports, enum pktlab_port_state state);
 
