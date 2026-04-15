@@ -34,6 +34,9 @@ struct pktlab_datapath {
     struct pktlab_eal_config eal;
     struct pktlab_ports_config ports;
     bool configured;
+    bool started;
+    bool ports_ready;
+    char running_message[PKTLAB_DPDKD_MESSAGE_LEN];
 };
 
 int pktlab_datapath_init(
@@ -51,5 +54,6 @@ void pktlab_datapath_running_message(
     char *buffer,
     size_t buffer_cap
 );
+bool pktlab_datapath_ports_ready(const struct pktlab_datapath *datapath);
 
 #endif /* PKTLAB_DPDKD_DATAPATH_H */

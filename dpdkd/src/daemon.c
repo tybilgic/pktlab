@@ -150,9 +150,12 @@ int pktlab_daemon_run(struct pktlab_daemon *daemon, volatile sig_atomic_t *stop_
         return -1;
     }
     pktlab_datapath_running_message(&daemon->datapath, running_message, sizeof(running_message));
+    pktlab_health_set_ports_ready(&daemon->health, pktlab_datapath_ports_ready(&daemon->datapath));
     pktlab_health_set_state(
         &daemon->health,
-        PKTLAB_DP_STATE_RUNNING,
+        pktlab_datapath_ports_ready(&daemon->datapath)
+            ? PKTLAB_DP_STATE_RUNNING
+            : PKTLAB_DP_STATE_DEGRADED,
         running_message
     );
 

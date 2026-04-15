@@ -1,10 +1,20 @@
 #include "ports.h"
 
+#include <errno.h>
 #include <limits.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "datapath.h"
+
+#if PKTLAB_DPDKD_HAS_DPDK
+#include <rte_common.h>
+#include <rte_ethdev.h>
+#include <rte_mbuf.h>
+#endif
+
+#define PKTLAB_DPDKD_MEMPOOL_NAME_LEN 64
 
 static void pktlab_ports_set_error(
     struct pktlab_dpdkd_error *error,
@@ -135,6 +145,175 @@ int pktlab_ports_prepare(
     ports->infos[1].state = PKTLAB_PORT_STATE_DOWN;
 
     return 0;
+}
+
+int pktlab_ports_start(
+    struct pktlab_ports_config *ports,
+    const struct pktlab_eal_config *eal,
+    struct pktlab_dpdkd_error *error
+)
+{
+#if PKTLAB_DPDKD_HAS_DPDK
+    const char *vdev_names[PKTLAB_DPDKD_PORT_COUNT];
+    char mempool_name[PKTLAB_DPDKD_MEMPOOL_NAME_LEN];
+    size_t index;
+    int written;
+
+    if (ports->ready) {
+        return 0;
+    }
+
+    written = snprintf(
+        mempool_name,
+        sizeof(mempool_name),
+        "pktlab-mbuf-%ld",
+        (long) getpid()
+    );
+    if (written < 0 || (size_t) written >= sizeof(mempool_name)) {
+        pktlab_ports_set_error(
+            error,
+            PKTLAB_DPDKD_ERR_INTERNAL,
+            "failed to render the datapath mempool name"
+        );
+        return -1;
+    }
+
+    ports->mempool = rte_pktmbuf_pool_create(
+        mempool_name,
+        ports->mempool_size,
+        0U,
+        0U,
+        RTE_MBUF_DEFAULT_BUF_SIZE,
+        SOCKET_ID_ANY
+    );
+    if (ports->mempool == NULL) {
+        pktlab_ports_set_error(
+            error,
+            PKTLAB_DPDKD_ERR_PORT_INIT,
+            "failed to create the datapath mbuf pool"
+        );
+        return -1;
+    }
+
+    vdev_names[0] = eal->ingress_vdev_name;
+    vdev_names[1] = eal->egress_vdev_name;
+
+    for (index = 0U; index < PKTLAB_DPDKD_PORT_COUNT; index++) {
+        struct rte_eth_conf port_conf;
+        uint16_t port_id;
+        uint16_t rx_desc;
+        uint16_t tx_desc;
+        int socket_id;
+
+        memset(&port_conf, 0, sizeof(port_conf));
+        if (rte_eth_dev_get_port_by_name(vdev_names[index], &port_id) != 0) {
+            pktlab_ports_set_error(
+                error,
+                PKTLAB_DPDKD_ERR_PORT_INIT,
+                "failed to resolve the TAP PMD port identifier"
+            );
+            return -1;
+        }
+
+        ports->infos[index].port_id = port_id;
+        ports->attached[index] = true;
+        rx_desc = ports->rx_queue_size;
+        tx_desc = ports->tx_queue_size;
+
+        if (rte_eth_dev_adjust_nb_rx_tx_desc(port_id, &rx_desc, &tx_desc) < 0) {
+            pktlab_ports_set_error(
+                error,
+                PKTLAB_DPDKD_ERR_PORT_INIT,
+                "failed to adjust TAP PMD queue descriptor counts"
+            );
+            return -1;
+        }
+
+        if (rte_eth_dev_configure(port_id, 1U, 1U, &port_conf) < 0) {
+            pktlab_ports_set_error(
+                error,
+                PKTLAB_DPDKD_ERR_PORT_INIT,
+                "failed to configure the TAP PMD port"
+            );
+            return -1;
+        }
+
+        socket_id = rte_eth_dev_socket_id(port_id);
+        if (socket_id < 0) {
+            socket_id = SOCKET_ID_ANY;
+        }
+
+        if (rte_eth_rx_queue_setup(port_id, 0U, rx_desc, (unsigned int) socket_id, NULL, ports->mempool) < 0) {
+            pktlab_ports_set_error(
+                error,
+                PKTLAB_DPDKD_ERR_PORT_INIT,
+                "failed to configure the TAP PMD receive queue"
+            );
+            return -1;
+        }
+
+        if (rte_eth_tx_queue_setup(port_id, 0U, tx_desc, (unsigned int) socket_id, NULL) < 0) {
+            pktlab_ports_set_error(
+                error,
+                PKTLAB_DPDKD_ERR_PORT_INIT,
+                "failed to configure the TAP PMD transmit queue"
+            );
+            return -1;
+        }
+
+        if (rte_eth_dev_start(port_id) < 0) {
+            pktlab_ports_set_error(
+                error,
+                PKTLAB_DPDKD_ERR_PORT_INIT,
+                "failed to start the TAP PMD port"
+            );
+            return -1;
+        }
+    }
+
+    ports->ready = true;
+    pktlab_ports_set_state(ports, PKTLAB_PORT_STATE_UP);
+    return 0;
+#else
+    (void) ports;
+    (void) eal;
+    pktlab_ports_set_error(
+        error,
+        PKTLAB_DPDKD_ERR_STATE_CONFLICT,
+        "libdpdk was not available at build time"
+    );
+    return -1;
+#endif
+}
+
+void pktlab_ports_cleanup(struct pktlab_ports_config *ports)
+{
+#if PKTLAB_DPDKD_HAS_DPDK
+    size_t index;
+
+    for (index = 0U; index < PKTLAB_DPDKD_PORT_COUNT; index++) {
+        if (!ports->attached[index]) {
+            continue;
+        }
+
+        (void) rte_eth_dev_stop(ports->infos[index].port_id);
+        (void) rte_eth_dev_close(ports->infos[index].port_id);
+        ports->attached[index] = false;
+    }
+
+    if (ports->mempool != NULL) {
+        rte_mempool_free(ports->mempool);
+        ports->mempool = NULL;
+    }
+#endif
+
+    ports->ready = false;
+    pktlab_ports_set_state(ports, PKTLAB_PORT_STATE_DOWN);
+}
+
+bool pktlab_ports_ready(const struct pktlab_ports_config *ports)
+{
+    return ports->ready;
 }
 
 void pktlab_ports_set_state(struct pktlab_ports_config *ports, enum pktlab_port_state state)

@@ -4,8 +4,8 @@
 
 - Active milestone: `M4`
 - Active ticket: `PLN-008`
-- Overall state: `PLN-008` is in progress with controller-to-datapath runtime plumbing and Meson source scaffolding in place; real DPDK EAL startup, TAP creation, and forwarding remain
-- Latest progress entry: `PRG-021`
+- Overall state: `PLN-008` is in progress with real DPDK EAL startup and TAP PMD bring-up in place; the single-core forwarding loop and root-backed end-to-end traffic verification remain
+- Latest progress entry: `PRG-022`
 
 ## Ticket Status
 
@@ -18,7 +18,7 @@
 | PLN-005 | Controller Bootstrap, Health API, and CLI Status | done | 2026-04-01 | `012be4d`, `fc08760` | Controller supervision, `/health`, `pktlabctl status`, and integration coverage are in place. |
 | PLN-006 | Config Parsing, Validation, and Effective Runtime Policy | done | 2026-04-01 | `e26821b`, `1458a90` | Topology/rules parsing and runtime derivation are in place; standalone rules now report root-relative validation paths while embedded topology rules keep `rules.*` paths. |
 | PLN-007 | Topology Primitives and TAP Reconciliation | done | 2026-04-01 | `d83aba1`, `aa59a77`, `1458a90` | Controller-owned topology lifecycle and topology API/CLI commands are in place; destroy now returns the controller to a healthy no-topology steady state. |
-| PLN-008 | Datapath EAL, Ports, and Pass-Through Loop | in progress | 2026-04-14 | `76cb42d` | controller-to-daemon runtime argument wiring and `dpdkd` module scaffolding are in place; real DPDK startup and forwarding are still pending |
+| PLN-008 | Datapath EAL, Ports, and Pass-Through Loop | in progress | 2026-04-15 | `<pending>` | controller-to-daemon runtime plumbing plus real DPDK EAL and TAP PMD startup are in place; packet forwarding and root-backed traffic verification are still pending |
 | PLN-009 | Datapath Status, Stats, and User Surface | not started | 2026-03-31 |  |  |
 | PLN-010 | Rules Engine and Atomic Ruleset Replacement | not started | 2026-03-31 |  |  |
 | PLN-011 | Capture, Scenarios, and Metrics | not started | 2026-03-31 |  |  |
@@ -704,6 +704,56 @@ Entries are append-only and ordered so session history can be reconstructed with
     module layout
 - Commit:
   - `76cb42d` `dpdkd: add PLN-008 runtime plumbing and module scaffolding`
+
+### PRG-022 | 2026-04-15
+
+- Ticket: `PLN-008`
+- Status change: runtime plumbing and module scaffolding in place -> real DPDK EAL startup and TAP PMD bring-up implemented
+- Implemented:
+  - replaced the placeholder datapath start path with real DPDK EAL initialization when `libdpdk`
+    is available and the daemon is running with root or `CAP_NET_ADMIN`
+  - added TAP PMD port discovery, mbuf pool creation, queue configuration, and device start/cleanup
+    for deterministic ingress and egress TAP names
+  - made datapath health honest across environments: `running` with `ports_ready=true` when the
+    fast path is up, and `degraded` with `ports_ready=false` when the daemon is unprivileged or
+    built without `libdpdk`
+  - updated the default IPC smoke test to validate the new startup semantics instead of the old
+    stub-era always-running expectation
+  - added an opt-in privileged datapath smoke script for real TAP startup verification on a
+    root-capable host
+- Files touched:
+  - `dpdkd/src/daemon.c`
+  - `dpdkd/src/datapath.c`
+  - `dpdkd/src/datapath.h`
+  - `dpdkd/src/eal.c`
+  - `dpdkd/src/eal.h`
+  - `dpdkd/src/ports.c`
+  - `dpdkd/src/ports.h`
+  - `dpdkd/tests/integration/test_ipc_smoke.py`
+  - `dpdkd/tests/integration/test_tap_startup_privileged.py`
+  - `README.md`
+  - `docs/tickets/PLN-008-datapath-eal-ports-and-pass-through-loop.md`
+  - `docs/progress.md`
+- Verification:
+  - rebuilt `dpdkd` with `meson compile -C build/dpdkd`
+  - ran `python3 dpdkd/tests/integration/test_ipc_smoke.py build/dpdkd/pktlab-dpdkd`
+  - ran `meson test -C build/dpdkd --print-errorlogs`
+  - verified the live non-root health payload reports `degraded` with `ports_ready=false` and the
+    expected TAP naming context
+- Remaining:
+  - add the single-core pass-through forwarding loop so packets actually traverse ingress -> egress
+  - verify the new privileged datapath TAP-startup smoke on a root-capable host
+  - run a real controller-driven topology apply/traffic smoke against the TAP-backed datapath
+- Risks or blockers:
+  - this environment is not root-capable, so the new privileged TAP-startup smoke could not be
+    executed here
+  - live packet forwarding is still absent; topology reconciliation can now bind the TAP devices,
+    but packet movement is still blocked on the forwarding loop
+- Next step:
+  - implement the single-core pass-through datapath loop, then verify the privileged startup and
+    controller-driven traffic path end to end
+- Commit:
+  - `<pending>`
 
 ## Read Before Continuing
 

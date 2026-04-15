@@ -28,13 +28,17 @@ Implemented today:
 - first `PLN-008` runtime-plumbing slice: the controller now passes the validated datapath runtime
   profile and deterministic TAP names into `pktlab-dpdkd`, and the daemon accepts those knobs via
   a real runtime-config surface
+- second `PLN-008` startup slice: on root-capable hosts with `libdpdk`, `pktlab-dpdkd` now
+  initializes DPDK EAL, creates deterministic TAP PMD ports, and reports accurate datapath
+  readiness; on unprivileged hosts it stays reachable but reports a degraded no-fast-path state
+- an opt-in privileged datapath smoke test that exercises real DPDK TAP startup for `dtap0` and
+  `dtap1`
 
 Not implemented yet:
 
-- DPDK EAL startup, TAP PMD port creation, forwarding loop, and rules engine
-- live end-to-end topology apply against the real datapath; the current IPC-only stub does not
-  create `dtap0` and `dtap1`, so controller TAP reconciliation will time out on a real host until
-  `PLN-008` lands
+- single-core packet forwarding, parser/actions modules, and rules engine
+- live end-to-end traffic verification through source -> datapath -> sink; TAP-backed datapath
+  startup is now in place, but the pass-through loop is still missing
 
 The current implementation baseline covers `PLN-001` through `PLN-007`. Progress history and the
 active ticket live in [docs/progress.md](docs/progress.md).
@@ -66,8 +70,8 @@ This file should stay aligned with the real repository state.
 - DPDK target version: `25.11.0`
 
 Meson now looks for `libdpdk.pc` while configuring `dpdkd`. If it is absent, the daemon still
-builds and the current IPC/runtime-plumbing slice remains testable, but the real TAP-backed fast
-path is not available yet.
+builds and remains IPC-testable, but it can only report a degraded no-fast-path state; the real
+TAP-backed datapath path requires `libdpdk`.
 
 ## Prerequisites
 
@@ -111,9 +115,10 @@ meson compile -C build/dpdkd
 Build note:
 
 - if `libdpdk.pc` is missing on the host, Meson warns and builds the current non-DPDK fallback path
-- that fallback still supports the controller-facing runtime arguments and the existing IPC tests
-- `PLN-008` is not complete until a host with the DPDK development package can build and verify the
-  real TAP PMD datapath path
+- that fallback still supports the controller-facing runtime arguments and the existing IPC tests,
+  but the daemon reports `degraded` and does not create TAP PMD interfaces
+- `PLN-008` is not complete until a root-capable host verifies the TAP PMD startup path and the
+  forwarding loop lands
 
 Sanity-check the current Python tree:
 
@@ -133,6 +138,14 @@ Run the Meson-driven datapath test suite:
 
 ```sh
 meson test -C build/dpdkd --print-errorlogs
+```
+
+Run the privileged datapath TAP-startup smoke path explicitly:
+
+```sh
+sudo env PKTLAB_RUN_PRIVILEGED_DPDKD_SMOKE=1 \
+  python3 dpdkd/tests/integration/test_tap_startup_privileged.py \
+  build/dpdkd/pktlab-dpdkd
 ```
 
 Run the controller test discovery:
@@ -172,6 +185,8 @@ Controller test note:
 - the privileged topology smoke test is opt-in, requires root or `CAP_NET_ADMIN`, and exercises
   the real `ip netns` apply/destroy flow with synthetic datapath-side `dtap0` and `dtap1`
   interfaces until `PLN-008` provides the real TAP-backed datapath
+- the privileged datapath TAP-startup smoke test is also opt-in and verifies that `pktlab-dpdkd`
+  can create and expose `dtap0` and `dtap1` through DPDK on a root-capable host
 
 Optional contract sanity checks:
 
@@ -182,7 +197,7 @@ python3 -c "import pathlib, yaml; yaml.safe_load(pathlib.Path('schemas/topology.
 
 ## Run
 
-Build and run the datapath stub directly:
+Build and run the datapath daemon directly:
 
 ```sh
 build/dpdkd/pktlab-dpdkd --help
@@ -194,6 +209,10 @@ Runtime notes:
 - default socket path: `/run/pktlab/dpdkd.sock`
 - the daemon now accepts runtime knobs for `--lcores`, `--hugepages-mb`, queue sizes, mempool size,
   and deterministic ingress/egress TAP names
+- with `libdpdk` available and root or `CAP_NET_ADMIN`, startup now initializes DPDK EAL and
+  creates the requested TAP PMD interfaces
+- without those privileges, or without `libdpdk` at build time, the daemon still answers IPC but
+  reports `degraded` and does not expose a forwarding fast path
 - the daemon handles `SIGINT` and `SIGTERM`
 - supported IPC commands: `ping`, `get_version`, `get_health`
 
@@ -226,9 +245,8 @@ Controller runtime notes:
   configured datapath namespace before TAP reconciliation
 - topology apply now passes the controller-derived runtime profile into `pktlab-dpdkd`, including
   `lcores`, `hugepages_mb`, queue sizes, mempool size, and ingress/egress TAP names
-- with the current IPC-only datapath stub, live `topology apply` is expected to fail while waiting
-  for `dtap0` and `dtap1`; the API and CLI surface are implemented and covered in tests, but real
-  TAP-backed success starts with `PLN-008`
+- on root-capable hosts with `libdpdk` present, `pktlab-dpdkd` can now create `dtap0` and `dtap1`
+  for controller TAP reconciliation; packet forwarding itself still waits on the pass-through loop
 - local development should usually pass `--dpdkd-socket-path /tmp/...` unless `/run/pktlab/` is
   already provisioned and writable
 - live topology apply/destroy requires the controller process to have the privileges needed for
@@ -288,4 +306,4 @@ from pktlab_ctrld.config import (
 
 ## Current Next Step
 
-Start `PLN-008`: datapath EAL, TAP PMD ports, and the pass-through loop.
+Finish `PLN-008`: add the single-core pass-through loop, then verify real traffic crosses the lab.
